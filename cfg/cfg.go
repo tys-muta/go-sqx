@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 
 	"github.com/pelletier/go-toml/v2"
@@ -19,6 +20,7 @@ func init() {
 	if v, err := os.Getwd(); err != nil {
 		return
 	} else {
+		log.Printf("wd: %s", v)
 		tomlPath = fmt.Sprintf("%s/%s", v, TomlFile)
 	}
 
