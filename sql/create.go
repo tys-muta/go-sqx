@@ -11,6 +11,10 @@ import (
 )
 
 func Create(tableName string, columns []Column, options ...opt.Option) (string, error) {
+	if len(columns) == 0 {
+		return "", fmt.Errorf("columns is empty")
+	}
+
 	o := &option.CreateOptions{}
 	if err := opt.Reflect(o, options...); err != nil {
 		return "", fmt.Errorf("failed to reflect: %w", err)
@@ -26,6 +30,9 @@ func Create(tableName string, columns []Column, options ...opt.Option) (string, 
 			keys = append(keys, fmt.Sprintf("`%s`", strcase.ToCamel(v)))
 		}
 		body = append(body, fmt.Sprintf("PRIMARY KEY (%s)", strings.Join(keys, ", ")))
+	} else {
+		// プライマリーキーの指定が無い場合は先頭カラムをプライマリキーにする
+		body = append(body, fmt.Sprintf("PRIMARY KEY (`%s`)", strcase.ToCamel(columns[0].Name)))
 	}
 
 	queries := []string{}
