@@ -18,7 +18,7 @@ var Value = struct {
 func init() {
 	var tomlPath string
 	if v, err := os.Getwd(); err != nil {
-		return
+		log.Fatal(err)
 	} else {
 		log.Printf("wd: %s", v)
 		tomlPath = fmt.Sprintf("%s/%s", v, TomlFile)
@@ -26,9 +26,9 @@ func init() {
 
 	if v, err := os.Stat(tomlPath); !errors.Is(err, os.ErrNotExist) && !v.IsDir() {
 		if v, err := ioutil.ReadFile(tomlPath); err != nil {
-			return
+			log.Fatal(err)
 		} else if err := toml.Unmarshal(v, &Value); err != nil {
-			return
+			log.Fatal(err)
 		}
 	}
 }
