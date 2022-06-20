@@ -11,3 +11,5 @@
 tmp
 bin
 data
+
+*.sqlite
