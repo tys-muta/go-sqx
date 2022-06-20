@@ -22,7 +22,7 @@ func Create(tableName string, columns []Column, options ...opt.Option) (string, 
 
 	body := []string{}
 	for _, column := range columns {
-		body = append(body, fmt.Sprintf("`%s` %s", column.Name, column.Type))
+		body = append(body, fmt.Sprintf("`%s` %s NOT NULL", column.Name, column.Type))
 	}
 	if len(o.PrimaryKey) > 0 {
 		keys := []string{}
