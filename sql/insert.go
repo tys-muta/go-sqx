@@ -7,6 +7,10 @@ import (
 )
 
 func Insert(tableName string, columns []Column, values [][]string) (string, error) {
+	if len(columns) == 0 {
+		return "", fmt.Errorf("columns is empty")
+	}
+
 	columnSlice := []string{}
 	for _, v := range columns {
 		columnSlice = append(columnSlice, fmt.Sprintf("`%s`", v.Name))
