@@ -20,7 +20,6 @@ func init() {
 	if v, err := os.Getwd(); err != nil {
 		log.Fatal(err)
 	} else {
-		log.Printf("wd: %s", v)
 		tomlPath = fmt.Sprintf("%s/%s", v, TomlFile)
 	}
 
