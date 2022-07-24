@@ -1,47 +1,41 @@
-# ソフトウェア共通の設定
+# 共通設定
 
-[sqlite.gen.local]
-path = "example/xlsx"
-
-[sqlite.gen.remote]
-repo = "https://github.com/tys-muta/go-sqx.git" # 対象のリポジトリ
-refs = "refs/tags/vx.x.x" # 対象の参照情報
-basicAuth = { username = "xxx", password = "ghp_xxx" }
-
-[sqlite.gen.head]
-ext = ".xlsx" # 対象となる表ファイルの拡張子
-path = "example/xlsx" # 取り込みの起点となるリポジトリルートからのパス
-columnNameRow = 3 # カラム名が定義されている行数
-columnTypeRow = 2 # カラムの型が定義されている行数 ( string, datetime, int, float )
-
-[sqlite.gen.body]
-ext = ".xlsx" # 対象となる表ファイルの拡張子
-path = "example/xlsx" # 取り込みの起点となるリポジトリルートからのパス
-startRow = 4 # 取り込みを開始する行数
-
-[sqlite.gen.xlsx]
-sheet = "データ" # 取り込み対象のシート名
-
-
-# 以降はテーブルごとの定義
-
-[sqlite.gen.table."/standard"] 
-primaryKey = ["id"]
-uniqueKeys = [
-  ["floatColumn", "datetimeColumn"],
-]
-indexKeys = [
-  ["stringColumn"],
-  ["intColumn", "floatColumn"],
-]
-
-[sqlite.gen.table."/shard/int"]
-primaryKey = ["typeId", "id"]
-# shardXXX は、ファイルを分割している場合の設定
-shardColumnName = "typeId" # ファイルに含まれるデータを格納する SQLite テーブルは、ここで指定した名称のカラムを持つ
-shardColumnType = "int" # ファイル名はこの型として格納される
-
-[sqlite.gen.table."/shard/string"]
-primaryKey = ["type", "id"]
-shardColumnName = "type"
-shardColumnType = "string"
+# SQLite 関連の設定
+[sqlite.gen]
+  timezone = "Asia/Tokyo"
+  [sqlite.gen.local]
+    path = "example/xlsx"
+  [sqlite.gen.remote]
+    repo = "https://github.com/tys-muta/go-sqx.git" # 対象のリポジトリ
+    refs = "refs/tags/vx.x.x" # 対象の参照情報
+    basicAuth = { username = "xxx", password = "ghp_xxx" }
+  [sqlite.gen.head]
+  ext = ".xlsx" # 対象となる表ファイルの拡張子
+  path = "example/xlsx" # 取り込みの起点となるリポジトリルートからのパス
+  columnNameRow = 3 # カラム名が定義されている行数
+  columnTypeRow = 2 # カラムの型が定義されている行数 ( string, datetime, int, float )
+  [sqlite.gen.body]
+  ext = ".xlsx" # 対象となる表ファイルの拡張子
+  path = "example/xlsx" # 取り込みの起点となるリポジトリルートからのパス
+  startRow = 4 # 取り込みを開始する行数
+  [sqlite.gen.xlsx]
+  sheet = "データ" # 取り込み対象のシート名
+    # 以降はテーブルごとの定義
+    [sqlite.gen.table."/standard"] 
+    primaryKey = ["id"]
+    uniqueKeys = [
+      ["floatColumn", "datetimeColumn"],
+    ]
+    indexKeys = [
+      ["stringColumn"],
+      ["intColumn", "floatColumn"],
+    ]
+    [sqlite.gen.table."/shard/int"]
+    primaryKey = ["typeId", "id"]
+    # shardXXX は、ファイルを分割している場合の設定
+    shardColumnName = "typeId" # ファイルに含まれるデータを格納する SQLite テーブルは、ここで指定した名称のカラムを持つ
+    shardColumnType = "int" # ファイル名はこの型として格納される
+    [sqlite.gen.table."/shard/string"]
+    primaryKey = ["type", "id"]
+    shardColumnName = "type"
+    shardColumnType = "string"

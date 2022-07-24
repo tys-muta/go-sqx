@@ -295,7 +295,7 @@ func (c *g) insert(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) erro
 func (c *g) columnType(v string) s_sql.ColumnType {
 	switch v {
 	case "time":
-		return s_sql.ColumnTypeTime
+		return s_sql.ColumnTypeDateTime
 	case "int":
 		return s_sql.ColumnTypeInteger
 	case "float":

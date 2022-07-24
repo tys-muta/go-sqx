@@ -1,7 +1,8 @@
 package sqlite
 
 type Gen struct {
-	Local struct {
+	Timezone string
+	Local    struct {
 		Path string
 	}
 	Remote struct {

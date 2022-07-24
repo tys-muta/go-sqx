@@ -5,6 +5,10 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
+	_ "time/tzdata"
+
+	"github.com/tys-muta/go-sqx/config"
 )
 
 func Insert(tableName string, columns []Column, values [][]string) (string, error) {
@@ -55,6 +59,18 @@ func cast(column Column, value string) (string, error) {
 		} else {
 			return fmt.Sprintf(`%g`, v), nil
 		}
+	case ColumnTypeDateTime:
+		if _, err := time.Parse(time.RFC3339, value); err == nil {
+			return fmt.Sprintf(`"%s"`, value), nil
+		}
+		// タイムゾーンが含まれないフォーマットの場合、コンフィグに基づきタイムゾーンを設定
+		if v, err := time.Parse("2006-01-02 15:04:05", value); err == nil {
+			v = v.In(config.Location())
+			_, offset := v.Zone()
+			v = v.Add(time.Duration(offset) * -time.Second)
+			return fmt.Sprintf(`"%s"`, v.Format(time.RFC3339)), nil
+		}
+		return fmt.Sprintf(`"%s"`, value), nil
 	default:
 		// SQL に合わせたダブルクォーてション処理
 		value = strings.Replace(value, `"`, `""`, -1)

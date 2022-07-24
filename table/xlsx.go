@@ -33,7 +33,7 @@ func (p *xlsxParser) Parse(bytes []byte) (Table, error) {
 					if v, err := cell.GetTime(false); err != nil {
 						return fmt.Errorf("failed to get time: %w", err)
 					} else {
-						v = v.In(time.Local)
+						v = v.In(config.Location())
 						_, offset := v.Zone()
 						v = v.Add(time.Duration(offset) * -time.Second)
 						r = append(r, v.Format(time.RFC3339))
