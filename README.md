@@ -18,4 +18,4 @@ $ go-sqx sqlite gen foo.db
 
 ##### Configure
 
-see [.sqx.toml](.sqx.toml)
+copy [.sqx.toml.default](.sqx.toml.default) to .sqx.toml
