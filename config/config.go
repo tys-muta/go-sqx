@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/tys-muta/go-sqx/config/sqlite"
@@ -24,6 +25,7 @@ type SQLite struct {
 }
 
 var root config
+var location time.Location
 
 func init() {
 	var tomlPath string
@@ -42,8 +44,21 @@ func init() {
 			log.Fatal(err)
 		}
 	}
+
+	if v := root.SQLite.Gen.Timezone; v == "" {
+		return
+	} else if v, err := time.LoadLocation(v); err != nil {
+		panic(err)
+	} else {
+		location = *v
+	}
 }
 
 func Get() config {
 	return root
+}
+
+func Location() *time.Location {
+	l := location
+	return &l
 }
