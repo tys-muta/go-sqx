@@ -3,6 +3,7 @@ package sql
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 )
 
@@ -20,8 +21,8 @@ func Insert(tableName string, columns []Column, values [][]string) (string, erro
 	for _, v := range values {
 		tmp := []string{}
 		for i, v := range v {
-			if v, err := parse(columns[i], v); err != nil {
-				return "", fmt.Errorf("failed to parse: %w", err)
+			if v, err := cast(columns[i], v); err != nil {
+				return "", fmt.Errorf("failed to cast: %w", err)
 			} else {
 				tmp = append(tmp, v)
 			}
@@ -38,4 +39,25 @@ func Insert(tableName string, columns []Column, values [][]string) (string, erro
 	log.Printf("%s", query)
 
 	return query, nil
+}
+
+func cast(column Column, value string) (string, error) {
+	switch column.Type {
+	case ColumnTypeInteger:
+		if v, err := strconv.ParseFloat(value, 64); err != nil {
+			return "", fmt.Errorf("failed to parse float: %w", err)
+		} else {
+			return fmt.Sprintf(`%d`, int(v)), nil
+		}
+	case ColumnTypeNumeric:
+		if v, err := strconv.ParseFloat(value, 64); err != nil {
+			return "", fmt.Errorf("failed to parse float, %w", err)
+		} else {
+			return fmt.Sprintf(`%g`, v), nil
+		}
+	default:
+		// SQL に合わせたダブルクォーてション処理
+		value = strings.Replace(value, `"`, `""`, -1)
+		return fmt.Sprintf(`"%s"`, value), nil
+	}
 }

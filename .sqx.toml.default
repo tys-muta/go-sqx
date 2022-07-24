@@ -1,22 +1,22 @@
 # ソフトウェア共通の設定
 
-[sqlite.gen]
+[sqlite.gen.local]
+path = "example/xlsx"
+
+[sqlite.gen.remote]
 repo = "https://github.com/tys-muta/go-sqx.git" # 対象のリポジトリ
 refs = "refs/tags/vx.x.x" # 対象の参照情報
-
-[sqlite.gen.basicAuth]
-username = "xxx" # Git のユーザー名
-password = "ghp_xxx" # Git のパスワード ( GitHub ならパーソナルアクセストークン )
+basicAuth = { username = "xxx", password = "ghp_xxx" }
 
 [sqlite.gen.head]
 ext = ".xlsx" # 対象となる表ファイルの拡張子
-path = "sample" # 取り込みの起点となるリポジトリルートからのパス
+path = "example/xlsx" # 取り込みの起点となるリポジトリルートからのパス
 columnNameRow = 3 # カラム名が定義されている行数
 columnTypeRow = 2 # カラムの型が定義されている行数 ( string, datetime, int, float )
 
 [sqlite.gen.body]
 ext = ".xlsx" # 対象となる表ファイルの拡張子
-path = "sample" # 取り込みの起点となるリポジトリルートからのパス
+path = "example/xlsx" # 取り込みの起点となるリポジトリルートからのパス
 startRow = 4 # 取り込みを開始する行数
 
 [sqlite.gen.xlsx]

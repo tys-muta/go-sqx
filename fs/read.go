@@ -9,27 +9,33 @@ import (
 	"github.com/go-git/go-billy/v5"
 )
 
-func Read(dir billy.Dir, path string, ext string) (FileMap, error) {
-	if v, err := read(dir, path, "", ext); err != nil {
+func Read(bfs billy.Filesystem, path string, ext string) (FileMap, error) {
+	if v, err := read(bfs, path, "", ext); err != nil {
 		return nil, fmt.Errorf("failed to read: %w", err)
 	} else {
 		return v, nil
 	}
 }
 
-func read(dir billy.Dir, rootPath string, path string, ext string) (FileMap, error) {
+func read(bfs billy.Filesystem, rootPath string, path string, ext string) (FileMap, error) {
+	fileMap := FileMap{}
+
 	if path == "" {
 		path = rootPath
 	}
 
+	if v, err := bfs.Stat(path); err != nil {
+		return nil, fmt.Errorf("failed to stat: %w", err)
+	} else if !v.IsDir() {
+		return fileMap, nil
+	}
+
 	var infoSlice []fs.FileInfo
-	if v, err := dir.ReadDir(path); err != nil {
+	if v, err := bfs.ReadDir(path); err != nil {
 		return nil, fmt.Errorf("failed to read dir on file system: %w", err)
 	} else {
 		infoSlice = v
 	}
-
-	fileMap := FileMap{}
 
 	for _, info := range infoSlice {
 		path := filepath.Join(path, info.Name())
@@ -43,7 +49,7 @@ func read(dir billy.Dir, rootPath string, path string, ext string) (FileMap, err
 			}
 			continue
 		}
-		if v, err := read(dir, rootPath, path, ext); err != nil {
+		if v, err := read(bfs, rootPath, path, ext); err != nil {
 			return nil, fmt.Errorf("failed to read: %w", err)
 		} else {
 			for index, file := range v {

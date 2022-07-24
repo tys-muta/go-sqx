@@ -6,10 +6,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
@@ -19,25 +19,16 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 	"github.com/tys-muta/go-opt"
-	"github.com/tys-muta/go-sqx/cfg"
-	"github.com/tys-muta/go-sqx/cfg/sqlite"
-	s_fs "github.com/tys-muta/go-sqx/fs"
+	"github.com/tys-muta/go-sqx/cmd/sqlite/gen"
+	"github.com/tys-muta/go-sqx/config"
+	"github.com/tys-muta/go-sqx/config/sqlite"
 	s_log "github.com/tys-muta/go-sqx/log"
 	s_sql "github.com/tys-muta/go-sqx/sql"
 	s_sql_option "github.com/tys-muta/go-sqx/sql/option"
-	s_table "github.com/tys-muta/go-sqx/table"
 )
 
-type gen struct {
-	Cfg sqlite.Gen
+type g struct {
 	Cmd *cobra.Command
-}
-
-type table struct {
-	value s_table.Table
-	index string
-	name  string
-	cfg   sqlite.GenTable
 }
 
 type arg struct {
@@ -46,8 +37,7 @@ type arg struct {
 	options []opt.Option
 }
 
-var Gen = &gen{
-	Cfg: cfg.Value.Sqlite.Gen,
+var Gen = &g{
 	Cmd: &cobra.Command{
 		Use:   "gen",
 		Short: "Output SQLite database file",
@@ -57,32 +47,26 @@ and Output SQLite database file.`,
 }
 
 var dbFile string
+var cfg sqlite.Gen
 
 func init() {
 	Gen.Cmd.RunE = Gen.Run
 
-	Gen.Cmd.Flags().StringVarP(&Gen.Cfg.Repo, "repo", "", Gen.Cfg.Repo, "git repository.")
-	Gen.Cmd.Flags().StringVarP(&Gen.Cfg.Refs, "refs", "", Gen.Cfg.Refs, "git repository reference.")
-	Gen.Cmd.Flags().StringVarP(&Gen.Cfg.PrivateKey.FilePath, "key", "k", Gen.Cfg.PrivateKey.FilePath, "PEM format ssh private key file path. required for ssh access to private repository.")
+	cfg = config.Get().SQLite.Gen
+
+	// Gen.Cmd.Flags().StringVarP(&cfg.Clone.Repo, "repo", "", cfg.Clone.Repo, "git repository.")
 
 	// 以下の情報はコマンドラインで渡すのはセキュアではないため、フラグは用意しない
 	// - SSH プライベートキーのパスワード
 	// - Basic 認証のユーザーとパスワード
 }
 
-func (c *gen) Run(command *cobra.Command, args []string) (retErr error) {
+func (c *g) Run(command *cobra.Command, args []string) (retErr error) {
 	l := len(args)
 	if l > 0 {
 		dbFile = args[0]
 	} else {
 		return fmt.Errorf("DB file is not specified")
-	}
-
-	var repo string
-	if l > 1 {
-		repo = args[1]
-	} else {
-		repo = c.Cfg.Repo
 	}
 
 	defer func() {
@@ -91,12 +75,20 @@ func (c *gen) Run(command *cobra.Command, args []string) (retErr error) {
 		}
 	}()
 
-	log.Printf("🔽 Clone repository [%s]", repo)
 	var bfs billy.Filesystem
-	if v, err := c.clone(repo); err != nil {
-		return fmt.Errorf("failed to clone: %w", err)
-	} else {
-		bfs = v
+	if v := cfg.Local.Path; v != "" {
+		log.Printf("🔽 Local [%s]", v)
+		bfs = osfs.New(v)
+	} else if v := cfg.Remote.Repo; v != "" {
+		log.Printf("🔽 Remote [%s]", v)
+		if v, err := c.clone(v); err != nil {
+			return fmt.Errorf("failed to clone: %w", err)
+		} else {
+			bfs = v
+		}
+	}
+	if bfs == nil {
+		return fmt.Errorf("no file system")
 	}
 
 	log.Printf("🔽 Setup database")
@@ -124,11 +116,11 @@ func (c *gen) Run(command *cobra.Command, args []string) (retErr error) {
 	return nil
 }
 
-func (c *gen) cleanup() error {
+func (c *g) cleanup() error {
 	return nil
 }
 
-func (c *gen) clone(ref string) (billy.Filesystem, error) {
+func (c *g) clone(ref string) (billy.Filesystem, error) {
 	if ref == "" {
 		return nil, fmt.Errorf("git repository reference is required")
 	}
@@ -138,19 +130,19 @@ func (c *gen) clone(ref string) (billy.Filesystem, error) {
 		Progress: s_log.Writer(),
 	}
 
-	if c.Cfg.PrivateKey.FilePath != "" {
+	if v := cfg.Remote.PrivateKey; v.FilePath != "" {
 		// TODO: 合っているはずの秘密鍵でも key mismatch になってしまうため要調査
-		if v, err := ssh.NewPublicKeysFromFile("user", c.Cfg.PrivateKey.FilePath, c.Cfg.PrivateKey.Password); err != nil {
+		if v, err := ssh.NewPublicKeysFromFile("user", v.FilePath, v.Password); err != nil {
 			return nil, fmt.Errorf("failed to open public key: %w", err)
 		} else {
 			options.Auth = v
 		}
 	}
 
-	if c.Cfg.BasicAuth.Username != "" {
+	if v := cfg.Remote.BasicAuth; v.Username != "" {
 		options.Auth = &http.BasicAuth{
-			Username: c.Cfg.BasicAuth.Username,
-			Password: c.Cfg.BasicAuth.Password,
+			Username: v.Username,
+			Password: v.Password,
 		}
 	}
 
@@ -163,12 +155,12 @@ func (c *gen) clone(ref string) (billy.Filesystem, error) {
 		repo = v
 	}
 
-	if c.Cfg.Refs != "" {
-		log.Printf("🔽 Checkout [%s]", c.Cfg.Refs)
-		if v, err := repo.Worktree(); err != nil {
+	if v := cfg.Remote.Refs; v != "" {
+		log.Printf("🔽 Checkout [%s]", v)
+		if wt, err := repo.Worktree(); err != nil {
 			return nil, fmt.Errorf("failed to work tree: %w", err)
-		} else if err := v.Checkout(&git.CheckoutOptions{
-			Branch: plumbing.ReferenceName(c.Cfg.Refs),
+		} else if err := wt.Checkout(&git.CheckoutOptions{
+			Branch: plumbing.ReferenceName(v),
 		}); err != nil {
 			return nil, fmt.Errorf("failed to checkout: %w", err)
 		}
@@ -177,7 +169,7 @@ func (c *gen) clone(ref string) (billy.Filesystem, error) {
 	return fs, nil
 }
 
-func (c *gen) setup() (*sql.DB, error) {
+func (c *g) setup() (*sql.DB, error) {
 	if err := os.RemoveAll(dbFile); err != nil {
 		return nil, fmt.Errorf("failed to remove db file: %w", err)
 	} else if v, err := sql.Open("sqlite3", dbFile); err != nil {
@@ -187,11 +179,11 @@ func (c *gen) setup() (*sql.DB, error) {
 	}
 }
 
-func (c *gen) create(db *sql.DB, bfs billy.Filesystem) (map[string]arg, error) {
+func (c *g) create(db *sql.DB, bfs billy.Filesystem) (map[string]arg, error) {
 	argMap := map[string]arg{}
 
-	var tables []table
-	if v, err := c.scan(bfs, c.Cfg.Head.Path, c.Cfg.Head.Ext); err != nil {
+	var tables []gen.Table
+	if v, err := gen.ScanTables(bfs, cfg.Head.Path, cfg.Head.Ext); err != nil {
 		return nil, fmt.Errorf("failed to scan: %w", err)
 	} else {
 		tables = v
@@ -201,15 +193,15 @@ func (c *gen) create(db *sql.DB, bfs billy.Filesystem) (map[string]arg, error) {
 		arg := arg{}
 
 		var nameRow []string
-		if v, err := t.value.Row(c.Cfg.Head.ColumnNameRow); err != nil {
-			return nil, fmt.Errorf("failed to get row: %w", err)
+		if v, err := t.Row(cfg.Head.ColumnNameRow); err != nil {
+			return nil, fmt.Errorf("%s: %w", t.Index, err)
 		} else {
 			nameRow = v
 		}
 
 		var typeRow []string
-		if v, err := t.value.Row(c.Cfg.Head.ColumnTypeRow); err != nil {
-			return nil, fmt.Errorf("failed to get row: %w", err)
+		if v, err := t.Row(cfg.Head.ColumnTypeRow); err != nil {
+			return nil, fmt.Errorf("%s: %w", t.Index, err)
 		} else {
 			typeRow = v
 		}
@@ -218,73 +210,73 @@ func (c *gen) create(db *sql.DB, bfs billy.Filesystem) (map[string]arg, error) {
 			return nil, fmt.Errorf("mismatch length of columns. name: %d, type: %d", len(nameRow), len(typeRow))
 		}
 
-		if v := t.cfg.PrimaryKey; len(v) > 0 {
+		if v := t.Config.PrimaryKey; len(v) > 0 {
 			arg.options = append(arg.options, s_sql_option.WithPrimaryKey(v))
 		}
-		if v := t.cfg.UniqueKeys; len(v) > 0 {
+		if v := t.Config.UniqueKeys; len(v) > 0 {
 			arg.options = append(arg.options, s_sql_option.WithUniqueKeys(v))
 		}
-		if v := t.cfg.IndexKeys; len(v) > 0 {
+		if v := t.Config.IndexKeys; len(v) > 0 {
 			arg.options = append(arg.options, s_sql_option.WithIndexKeys(v))
 		}
-		if t.cfg.ShardColumnName != "" {
+		if t.Config.ShardColumnName != "" {
 			arg.columns = append(arg.columns, s_sql.Column{
-				Type: c.columnType(t.cfg.ShardColumnType),
-				Name: strcase.ToCamel(t.cfg.ShardColumnName),
+				Type: c.columnType(t.Config.ShardColumnType),
+				Name: strcase.ToCamel(t.Config.ShardColumnName),
 			})
 		}
 
-		if _, ok := argMap[t.name]; ok {
+		if _, ok := argMap[t.Name]; ok {
 			// 分割されているテーブルは重複を除外する
 			continue
 		}
 
-		arg.name = t.name
+		arg.name = t.Name
 		for i, v := range typeRow {
 			arg.columns = append(arg.columns, s_sql.Column{
 				Type: c.columnType(v),
 				Name: strcase.ToCamel(nameRow[i]),
 			})
 		}
-		argMap[t.name] = arg
+		argMap[t.Name] = arg
 	}
 
 	for _, arg := range argMap {
 		if v, err := s_sql.Create(arg.name, arg.columns, arg.options...); err != nil {
 			return nil, fmt.Errorf("failed to generate creation query: %w", err)
 		} else if _, err := db.Exec(v); err != nil {
-			return nil, fmt.Errorf("failed to execute query: %w", err)
+			return nil, fmt.Errorf("failed to execute creation query: %w", err)
 		}
 	}
 
 	return argMap, nil
 }
 
-func (c *gen) insert(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) error {
-	var tables []table
-	if v, err := c.scan(bfs, c.Cfg.Body.Path, c.Cfg.Body.Ext); err != nil {
+func (c *g) insert(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) error {
+	var tables []gen.Table
+	if v, err := gen.ScanTables(bfs, cfg.Body.Path, cfg.Body.Ext); err != nil {
 		return fmt.Errorf("failed to scan: %w", err)
 	} else {
 		tables = v
 	}
 
 	for _, t := range tables {
-		startRow := c.Cfg.Body.StartRow
-		if t.value.RowLength() < startRow {
-			return fmt.Errorf("not enough rows. rows: %d, start row: %d", t.value.RowLength(), startRow)
+		startRow := cfg.Body.StartRow
+		if t.RowLength() < startRow {
+			return fmt.Errorf("not enough rows. rows: %d, start row: %d", t.RowLength(), startRow)
 		}
 
 		var arg arg
-		if v, ok := argMap[t.name]; !ok {
-			return fmt.Errorf("not exists arg. table name: %s", t.name)
+		if v, ok := argMap[t.Name]; !ok {
+			return fmt.Errorf("not exists arg. table name: %s", t.Name)
 		} else {
 			arg = v
 		}
 
-		values := [][]string(t.value[startRow-1:])
+		values := [][]string(t.Table[startRow-1:])
 
-		if t.cfg.ShardColumnName != "" {
-			base := filepath.Base(t.index)
+		if t.Config.ShardColumnName != "" {
+			base := filepath.Base(t.Index)
 			for i, v := range values {
 				values[i] = append([]string{base}, v...)
 			}
@@ -293,51 +285,17 @@ func (c *gen) insert(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) er
 		if v, err := s_sql.Insert(arg.name, arg.columns, values); err != nil {
 			return fmt.Errorf("failed to generate insertion query: %w", err)
 		} else if _, err := db.Exec(v); err != nil {
-			return fmt.Errorf("failed to execute query: %w", err)
+			return fmt.Errorf("failed to execute insertion query: %w", err)
 		}
 	}
 
 	return nil
 }
 
-func (c *gen) scan(bfs billy.Filesystem, path string, ext string) ([]table, error) {
-	tables := []table{}
-
-	var fileMap s_fs.FileMap
-	if v, err := s_fs.Read(bfs, path, ext); err != nil {
-		return nil, fmt.Errorf("failed to read: %w", err)
-	} else {
-		fileMap = v
-	}
-
-	for index, file := range fileMap {
-		table := table{index: index}
-		if v, err := s_table.Parse(bfs, file); err != nil {
-			return nil, fmt.Errorf("failed to parse: %w", err)
-		} else {
-			table.value = v
-		}
-
-		for k, v := range c.Cfg.Table {
-			if !strings.HasPrefix(index, k) {
-				continue
-			}
-			index = k
-			table.cfg = v
-		}
-
-		table.name = strcase.ToCamel(strings.Replace(index, "/", "_", -1))
-
-		tables = append(tables, table)
-	}
-
-	return tables, nil
-}
-
-func (c *gen) columnType(v string) s_sql.ColumnType {
+func (c *g) columnType(v string) s_sql.ColumnType {
 	switch v {
-	case "datetime":
-		return s_sql.ColumnTypeDatetime
+	case "time":
+		return s_sql.ColumnTypeTime
 	case "int":
 		return s_sql.ColumnTypeInteger
 	case "float":
