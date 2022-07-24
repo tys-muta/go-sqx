@@ -21,9 +21,9 @@ func Parse(bfs billy.Basic, file fs.File) (Table, error) {
 
 	var table Table
 	if v, err := NewParser(file.Type); err != nil {
-		return nil, fmt.Errorf("failed to parse: %w", err)
+		return nil, fmt.Errorf("failed to parse [%s]: %w", file.Path, err)
 	} else if v, err := v.Parse(bytes); err != nil {
-		return nil, fmt.Errorf("failed to parse: %w", err)
+		return nil, fmt.Errorf("failed to parse [%s]: %w", file.Path, err)
 	} else {
 		table = v
 	}
