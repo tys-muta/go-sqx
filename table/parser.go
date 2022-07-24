@@ -13,7 +13,11 @@ type parser interface {
 func NewParser(fileType fs.FileType) (parser, error) {
 	switch fileType {
 	case fs.FileTypeXLSX:
-		return &xlsx{}, nil
+		return &xlsxParser{}, nil
+	case fs.FileTypeCSV:
+		return &csvParser{}, nil
+	case fs.FileTypeTSV:
+		return &tsvParser{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported parser type")
 	}

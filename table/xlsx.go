@@ -5,14 +5,14 @@ import (
 	"time"
 
 	xls "github.com/tealeg/xlsx/v3"
-	"github.com/tys-muta/go-sqx/cfg"
+	"github.com/tys-muta/go-sqx/config"
 )
 
-type xlsx struct{}
+type xlsxParser struct{}
 
-var _ parser = (*xlsx)(nil)
+var _ parser = (*xlsxParser)(nil)
 
-func (p *xlsx) Parse(bytes []byte) (Table, error) {
+func (p *xlsxParser) Parse(bytes []byte) (Table, error) {
 	var file *xls.File
 	if v, err := xls.OpenBinary(bytes); err != nil {
 		return nil, fmt.Errorf("failed to open xlsx file: %w", err)
@@ -23,7 +23,7 @@ func (p *xlsx) Parse(bytes []byte) (Table, error) {
 	table := Table{}
 
 	for k, v := range file.Sheet {
-		if k != cfg.Value.Sqlite.Gen.XLSX.Sheet {
+		if k != config.Get().SQLite.Gen.XLSX.Sheet {
 			continue
 		}
 		if err := v.ForEachRow(func(row *xls.Row) error {

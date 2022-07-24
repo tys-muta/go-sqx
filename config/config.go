@@ -1,4 +1,4 @@
-package cfg
+package config
 
 import (
 	"errors"
@@ -8,12 +8,22 @@ import (
 	"os"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/tys-muta/go-sqx/cfg/sqlite"
+	"github.com/tys-muta/go-sqx/config/sqlite"
 )
 
-var Value = struct {
-	Sqlite sqlite.Sqlite
-}{}
+const (
+	TomlFile string = ".sqx.toml"
+)
+
+type config struct {
+	SQLite SQLite
+}
+
+type SQLite struct {
+	Gen sqlite.Gen
+}
+
+var root config
 
 func init() {
 	var tomlPath string
@@ -23,11 +33,17 @@ func init() {
 		tomlPath = fmt.Sprintf("%s/%s", v, TomlFile)
 	}
 
+	root = config{}
+
 	if v, err := os.Stat(tomlPath); !errors.Is(err, os.ErrNotExist) && !v.IsDir() {
 		if v, err := ioutil.ReadFile(tomlPath); err != nil {
 			log.Fatal(err)
-		} else if err := toml.Unmarshal(v, &Value); err != nil {
+		} else if err := toml.Unmarshal(v, &root); err != nil {
 			log.Fatal(err)
 		}
 	}
+}
+
+func Get() config {
+	return root
 }

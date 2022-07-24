@@ -1,19 +1,20 @@
 package sqlite
 
-type Sqlite struct {
-	Gen Gen
-}
-
 type Gen struct {
-	Repo       string
-	Refs       string
-	PrivateKey struct {
-		FilePath string
-		Password string
+	Local struct {
+		Path string
 	}
-	BasicAuth struct {
-		Username string
-		Password string
+	Remote struct {
+		Repo       string
+		Refs       string
+		PrivateKey struct {
+			FilePath string
+			Password string
+		}
+		BasicAuth struct {
+			Username string
+			Password string
+		}
 	}
 	Head struct {
 		Ext           string

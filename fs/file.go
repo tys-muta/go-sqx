@@ -6,6 +6,8 @@ type FileType string
 
 const (
 	FileTypeXLSX = FileType("xlsx")
+	FileTypeCSV  = FileType("csv")
+	FileTypeTSV  = FileType("tsv")
 )
 
 type File struct {
