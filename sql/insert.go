@@ -21,14 +21,12 @@ func Insert(tableName string, columns []Column, values [][]string) (string, erro
 		columnSlice = append(columnSlice, fmt.Sprintf("`%s`", v.Name))
 	}
 
-	log.Printf("Table: %s, Columns: %v, Values: %v", tableName, columns, values)
-
 	valueSlice := []string{}
 	for _, v := range values {
 		tmp := []string{}
 		for i, v := range v {
 			if v, err := cast(columns[i], v); err != nil {
-				return "", fmt.Errorf("failed to cast: %w", err)
+				return "", fmt.Errorf("failed to cast table[%s]: %w", tableName, err)
 			} else {
 				tmp = append(tmp, v)
 			}
