@@ -21,6 +21,8 @@ func Insert(tableName string, columns []Column, values [][]string) (string, erro
 		columnSlice = append(columnSlice, fmt.Sprintf("`%s`", v.Name))
 	}
 
+	log.Printf("Table: %s, Columns: %v, Values: %v", tableName, columns, values)
+
 	valueSlice := []string{}
 	for _, v := range values {
 		tmp := []string{}
@@ -48,12 +50,18 @@ func Insert(tableName string, columns []Column, values [][]string) (string, erro
 func cast(column Column, value string) (string, error) {
 	switch column.Type {
 	case ColumnTypeInteger:
+		if value == "" {
+			return "0", nil
+		}
 		if v, err := strconv.ParseFloat(value, 64); err != nil {
 			return "", fmt.Errorf("failed to parse float: %w", err)
 		} else {
 			return fmt.Sprintf(`%d`, int(v)), nil
 		}
 	case ColumnTypeNumeric:
+		if value == "" {
+			return "0", nil
+		}
 		if v, err := strconv.ParseFloat(value, 64); err != nil {
 			return "", fmt.Errorf("failed to parse float, %w", err)
 		} else {
