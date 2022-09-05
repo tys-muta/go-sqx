@@ -26,7 +26,7 @@ func Insert(tableName string, columns []Column, values [][]string) (string, erro
 		tmp := []string{}
 		for i, v := range v {
 			if v, err := cast(columns[i], v); err != nil {
-				return "", fmt.Errorf("failed to cast: %w", err)
+				return "", fmt.Errorf("failed to cast table[%s]: %w", tableName, err)
 			} else {
 				tmp = append(tmp, v)
 			}
@@ -48,12 +48,18 @@ func Insert(tableName string, columns []Column, values [][]string) (string, erro
 func cast(column Column, value string) (string, error) {
 	switch column.Type {
 	case ColumnTypeInteger:
+		if value == "" {
+			return "0", nil
+		}
 		if v, err := strconv.ParseFloat(value, 64); err != nil {
 			return "", fmt.Errorf("failed to parse float: %w", err)
 		} else {
 			return fmt.Sprintf(`%d`, int(v)), nil
 		}
 	case ColumnTypeNumeric:
+		if value == "" {
+			return "0", nil
+		}
 		if v, err := strconv.ParseFloat(value, 64); err != nil {
 			return "", fmt.Errorf("failed to parse float, %w", err)
 		} else {
