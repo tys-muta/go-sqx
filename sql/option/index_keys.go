@@ -11,7 +11,8 @@ func (o indexKeys) Validate() error {
 }
 
 func (o indexKeys) Apply(options any) {
-	if v, ok := options.(*CreateOptions); ok {
+	switch v := options.(type) {
+	case *CreateOptions:
 		v.IndexKeys = o
 	}
 }

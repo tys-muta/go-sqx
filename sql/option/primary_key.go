@@ -11,7 +11,8 @@ func (o primaryKey) Validate() error {
 }
 
 func (o primaryKey) Apply(options any) {
-	if v, ok := options.(*CreateOptions); ok {
+	switch v := options.(type) {
+	case *CreateOptions:
 		v.PrimaryKey = o
 	}
 }

@@ -219,6 +219,13 @@ func (c *g) create(db *sql.DB, bfs billy.Filesystem) (map[string]arg, error) {
 		if v := t.Config.IndexKeys; len(v) > 0 {
 			arg.options = append(arg.options, s_sql_option.WithIndexKeys(v))
 		}
+		if v := t.Config.ForeignKeys; len(v) > 0 {
+			keys := []s_sql_option.ForeignKey{}
+			for _, v := range v {
+				keys = append(keys, v)
+			}
+			arg.options = append(arg.options, s_sql_option.WithForeignKeys(keys))
+		}
 		if t.Config.ShardColumnName != "" {
 			arg.columns = append(arg.columns, s_sql.Column{
 				Type: c.columnType(t.Config.ShardColumnType),
