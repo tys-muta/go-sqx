@@ -2,7 +2,6 @@ package sql
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -39,8 +38,6 @@ func Insert(tableName string, columns []Column, values [][]string) (string, erro
 		strings.Join(columnSlice, ", "),
 		strings.Join(valueSlice, ", "),
 	)
-
-	log.Printf("%s", query)
 
 	return query, nil
 }

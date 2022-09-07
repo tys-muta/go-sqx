@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
@@ -174,6 +175,8 @@ func (c *g) setup() (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to remove db file: %w", err)
 	} else if v, err := sql.Open("sqlite3", dbFile); err != nil {
 		return nil, fmt.Errorf("failed to open connection with database")
+	} else if _, err := v.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return nil, fmt.Errorf("failed to enable foreign key: %w", err)
 	} else {
 		return v, nil
 	}
@@ -267,6 +270,7 @@ func (c *g) insert(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) erro
 		tables = v
 	}
 
+	queries := []string{}
 	for _, t := range tables {
 		startRow := cfg.Body.StartRow
 		if t.RowLength() < startRow {
@@ -291,8 +295,39 @@ func (c *g) insert(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) erro
 
 		if v, err := s_sql.Insert(arg.name, arg.columns, values); err != nil {
 			return fmt.Errorf("failed to generate insertion query: %w", err)
-		} else if _, err := db.Exec(v); err != nil {
-			return fmt.Errorf("failed to execute insertion query: %w", err)
+		} else {
+			queries = append(queries, v)
+		}
+	}
+
+	// 外部キー制約によって失敗する事を考慮してインサート＆リトライを行う
+	retryCounts := map[string]int{}
+	insert := func(queries []string) ([]string, error) {
+		failedQueries := []string{}
+		for _, query := range queries {
+			if _, err := db.Exec(query); strings.Contains(fmt.Sprintf("%s", err), "FOREIGN KEY constraint failed") {
+				failedQueries = append(failedQueries, query)
+				retryCounts[query]++
+				if retryCounts[query] > 10 {
+					return nil, fmt.Errorf("failed to execute insertion query retry: %w", err)
+				}
+			} else if err != nil {
+				return nil, fmt.Errorf("failed to execute insertion query: %w", err)
+			} else {
+				log.Printf("%s", query)
+			}
+		}
+		return failedQueries, nil
+	}
+
+	var err error
+	for {
+		queries, err = insert(queries)
+		if err != nil {
+			return fmt.Errorf("failed to insert: %w", err)
+		}
+		if len(queries) == 0 {
+			break
 		}
 	}
 
