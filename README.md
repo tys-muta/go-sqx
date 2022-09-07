@@ -1,21 +1,20 @@
 # sqx
 
-## Installation
+## インストール方法
 
 ```sh
 $ go install github.com/tys-muta/go-sqx.git
 ```
 
-## SQLite
-
-#### Generate Database from Git repository
-
-##### Command
-
-```sh
-$ go-sqx sqlite gen foo.db
-```
-
-##### Configure
+## 設定ファイル
 
 copy [.sqx.toml.default](.sqx.toml.default) to .sqx.toml
+
+## 使い方
+
+### SQLite のデータベースファイルを作成
+
+```sh
+$ go-sqx sqlite gen foo.sqlite
+```
+

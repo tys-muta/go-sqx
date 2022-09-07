@@ -35,9 +35,13 @@ type Gen struct {
 }
 
 type GenTable struct {
-	PrimaryKey      []string
-	UniqueKeys      [][]string
-	IndexKeys       [][]string
+	PrimaryKey  []string
+	UniqueKeys  [][]string
+	IndexKeys   [][]string
+	ForeignKeys []struct {
+		Column    string
+		Reference string
+	}
 	ShardColumnName string
 	ShardColumnType string
 }

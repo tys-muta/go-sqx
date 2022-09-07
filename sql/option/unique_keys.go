@@ -11,7 +11,8 @@ func (o uniqueKeys) Validate() error {
 }
 
 func (o uniqueKeys) Apply(options any) {
-	if v, ok := options.(*CreateOptions); ok {
+	switch v := options.(type) {
+	case *CreateOptions:
 		v.UniqueKeys = o
 	}
 }
