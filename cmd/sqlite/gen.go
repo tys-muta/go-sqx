@@ -23,7 +23,6 @@ import (
 	"github.com/tys-muta/go-sqx/cmd/sqlite/gen"
 	"github.com/tys-muta/go-sqx/config"
 	"github.com/tys-muta/go-sqx/config/sqlite"
-	s_log "github.com/tys-muta/go-sqx/log"
 	s_sql "github.com/tys-muta/go-sqx/sql"
 	s_sql_option "github.com/tys-muta/go-sqx/sql/option"
 )
@@ -128,7 +127,7 @@ func (c *g) clone(ref string) (billy.Filesystem, error) {
 
 	options := &git.CloneOptions{
 		URL:      ref,
-		Progress: s_log.Writer(),
+		Progress: os.Stdout,
 	}
 
 	if v := cfg.Remote.PrivateKey; v.FilePath != "" {
@@ -197,14 +196,14 @@ func (c *g) create(db *sql.DB, bfs billy.Filesystem) (map[string]arg, error) {
 
 		var nameRow []string
 		if v, err := t.Row(cfg.Head.ColumnNameRow); err != nil {
-			return nil, fmt.Errorf("%s: %w", t.Index, err)
+			return nil, fmt.Errorf("failed to get name row[%s]: %w", t.Index, err)
 		} else {
 			nameRow = v
 		}
 
 		var typeRow []string
 		if v, err := t.Row(cfg.Head.ColumnTypeRow); err != nil {
-			return nil, fmt.Errorf("%s: %w", t.Index, err)
+			return nil, fmt.Errorf("failed to get type row[%s]: %w", t.Index, err)
 		} else {
 			typeRow = v
 		}
@@ -305,7 +304,8 @@ func (c *g) insert(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) erro
 	insert := func(queries []string) ([]string, error) {
 		failedQueries := []string{}
 		for _, query := range queries {
-			if _, err := db.Exec(query); strings.Contains(fmt.Sprintf("%s", err), "FOREIGN KEY constraint failed") {
+			_, err := db.Exec(query)
+			if strings.Contains(fmt.Sprintf("%s", err), "FOREIGN KEY constraint failed") {
 				failedQueries = append(failedQueries, query)
 				retryCounts[query]++
 				if retryCounts[query] > 10 {
@@ -320,14 +320,13 @@ func (c *g) insert(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) erro
 		return failedQueries, nil
 	}
 
-	var err error
 	for {
-		queries, err = insert(queries)
-		if err != nil {
+		if v, err := insert(queries); err != nil {
 			return fmt.Errorf("failed to insert: %w", err)
-		}
-		if len(queries) == 0 {
+		} else if len(v) == 0 {
 			break
+		} else {
+			queries = v
 		}
 	}
 

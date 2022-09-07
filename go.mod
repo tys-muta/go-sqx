@@ -9,7 +9,6 @@ require (
 	github.com/iancoleman/strcase v0.2.0
 	github.com/mattn/go-sqlite3 v1.14.13
 	github.com/pelletier/go-toml/v2 v2.0.1
-	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0
 	github.com/tealeg/xlsx/v3 v3.2.4
 	github.com/tys-muta/go-opt v0.0.1
