@@ -305,6 +305,7 @@ func (c *g) insert(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) erro
 		failedQueries := []string{}
 		for _, query := range queries {
 			_, err := db.Exec(query)
+			log.Printf("%s", query)
 			if strings.Contains(fmt.Sprintf("%s", err), "FOREIGN KEY constraint failed") {
 				failedQueries = append(failedQueries, query)
 				retryCounts[query]++
@@ -313,8 +314,6 @@ func (c *g) insert(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) erro
 				}
 			} else if err != nil {
 				return nil, fmt.Errorf("failed to execute insertion query: %w", err)
-			} else {
-				log.Printf("%s", query)
 			}
 		}
 		return failedQueries, nil

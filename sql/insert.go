@@ -48,8 +48,8 @@ func cast(column Column, value string) (string, error) {
 		if value == "" {
 			return "0", nil
 		}
-		if v, err := strconv.ParseFloat(value, 64); err != nil {
-			return "", fmt.Errorf("failed to parse float: %w", err)
+		if v, err := strconv.ParseInt(value, 0, 64); err != nil {
+			return "", fmt.Errorf("failed to parse int: %w", err)
 		} else {
 			return fmt.Sprintf(`%d`, int(v)), nil
 		}
