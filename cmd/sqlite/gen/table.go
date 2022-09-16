@@ -2,6 +2,7 @@ package gen
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
@@ -43,8 +44,29 @@ func ScanTables(bfs billy.Filesystem, path string, ext string) ([]Table, error) 
 			if !strings.HasPrefix(index, k) {
 				continue
 			}
-			index = k
-			t.Config = v
+			name := strings.TrimPrefix(index, k)
+			name = strings.TrimPrefix(name, "/")
+			if strings.Contains(name, "/") {
+				continue
+			}
+			switch {
+			case v.ShardColumnType != "":
+				if v.ShardColumnType == "int" {
+					if _, err := strconv.ParseInt(name, 10, 64); err != nil {
+						continue
+					}
+				}
+				index = k
+				t.Config = v
+			case
+				len(v.PrimaryKey) > 0,
+				len(v.UniqueKeys) > 0,
+				len(v.IndexKeys) > 0,
+				len(v.ForeignKeys) > 0:
+				if index == k {
+					t.Config = v
+				}
+			}
 		}
 
 		t.Name = strcase.ToCamel(strings.Replace(index, "/", "_", -1))
