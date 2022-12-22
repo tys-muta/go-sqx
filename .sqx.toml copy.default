@@ -34,19 +34,21 @@
 
   # 以降は sqlite.gen.table."/path" というルールでテーブルごとの設定を記述する
 
-  [[sqlite.gen.table."/standard"]]
-    primaryKey = ["id"]
-    uniqueKeys = [
-      ["floatColumn", "datetimeColumn"],
-    ]
-    indexKeys = [
-      ["stringColumn"],
-      ["intColumn", "floatColumn"],
-    ]
+  [sqlite.gen.table]
+    ["/standard"]
+      primaryKey = ["id"]
+      uniqueKeys = [
+        ["floatColumn", "datetimeColumn"],
+      ]
+      indexKeys = [
+        ["stringColumn"],
+        ["intColumn", "floatColumn"],
+      ]
 
-  [[sqlite.gen.table."/child".foreignKeys]]   
-    column = "standardId"
-    reference = "standard(id)"
+    ["/child"]
+      foreignKeys
+        column = "standardId"
+        reference = "standard(id)"
 
   [[sqlite.gen.table."/shard/int"]]
     primaryKey = ["typeId", "id"]
