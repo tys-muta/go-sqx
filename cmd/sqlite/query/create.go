@@ -1,22 +1,21 @@
-package sql
+package query
 
 import (
 	"fmt"
 	"log"
 	"strings"
 
-	"github.com/tys-muta/go-opt"
-	"github.com/tys-muta/go-sqx/sql/option"
+	"github.com/tys-muta/go-sqx/cmd/sqlite/option"
 )
 
-func Create(tableName string, columns []Column, options ...opt.Option) (string, error) {
+func Create(tableName string, columns []Column, options ...func(any)) (string, error) {
 	if len(columns) == 0 {
 		return "", fmt.Errorf("columns is empty")
 	}
 
-	o := &option.CreateOptions{}
-	if err := opt.Reflect(o, options...); err != nil {
-		return "", fmt.Errorf("failed to reflect: %w", err)
+	o := option.CreateOptions{}
+	for _, v := range options {
+		v(&o)
 	}
 
 	body := []string{}

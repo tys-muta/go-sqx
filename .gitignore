@@ -5,7 +5,7 @@
 .env
 .idea
 .vscode
-.sqx.toml
+.sqx_sqlite_gen.toml
 
 # project temporary files
 tmp

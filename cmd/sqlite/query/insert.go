@@ -1,4 +1,4 @@
-package sql
+package query
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	"github.com/tys-muta/go-sqx/config"
+	"github.com/tys-muta/go-sqx/cmd/sqlite/config"
 )
 
 func Insert(tableName string, columns []Column, values [][]string) (string, error) {
@@ -68,7 +68,8 @@ func cast(column Column, value string) (string, error) {
 		}
 		// タイムゾーンが含まれないフォーマットの場合、コンフィグに基づきタイムゾーンを設定
 		if v, err := time.Parse("2006-01-02 15:04:05", value); err == nil {
-			v = v.In(config.Location())
+			loc := config.Get().Location
+			v = v.In(&loc)
 			_, offset := v.Zone()
 			v = v.Add(time.Duration(offset) * -time.Second)
 			return fmt.Sprintf(`"%s"`, v.Format(time.RFC3339)), nil

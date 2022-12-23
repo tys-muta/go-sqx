@@ -1,4 +1,4 @@
-package gen
+package sqlite
 
 import (
 	"fmt"
@@ -7,30 +7,25 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/iancoleman/strcase"
-	"github.com/tys-muta/go-sqx/config"
-	"github.com/tys-muta/go-sqx/config/sqlite"
+	"github.com/tys-muta/go-sqx/cmd/sqlite/config"
+	"github.com/tys-muta/go-sqx/cmd/sqlite/table"
 	"github.com/tys-muta/go-sqx/fs"
-	"github.com/tys-muta/go-sqx/table"
 )
 
 type Table struct {
 	table.Table
 	Index  string
 	Name   string
-	Config sqlite.GenTable
+	Config config.Table
 }
 
 func ScanTables(bfs billy.Filesystem, path string, ext string) ([]Table, error) {
 	tables := []Table{}
 
-	var fileMap fs.FileMap
-	if v, err := fs.Read(bfs, path, ext); err != nil {
+	fileMap, err := fs.Read(bfs, path, ext)
+	if err != nil {
 		return nil, fmt.Errorf("failed to read: %w", err)
-	} else {
-		fileMap = v
 	}
-
-	configs := config.Get().SQLite.Gen.Table
 
 	for index, file := range fileMap {
 		t := Table{Index: index}
@@ -40,7 +35,7 @@ func ScanTables(bfs billy.Filesystem, path string, ext string) ([]Table, error) 
 			t.Table = v
 		}
 
-		for k, v := range configs {
+		for k, v := range config.Get().Table {
 			if !strings.HasPrefix(index, k) {
 				continue
 			}

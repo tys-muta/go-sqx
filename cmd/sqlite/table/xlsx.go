@@ -8,7 +8,7 @@ import (
 	"time"
 
 	xls "github.com/tealeg/xlsx/v3"
-	"github.com/tys-muta/go-sqx/config"
+	"github.com/tys-muta/go-sqx/cmd/sqlite/config"
 )
 
 type xlsxParser struct{}
@@ -16,19 +16,16 @@ type xlsxParser struct{}
 var _ parser = (*xlsxParser)(nil)
 
 func (p *xlsxParser) Parse(bytes []byte) (Table, error) {
-	var file *xls.File
-	if v, err := xls.OpenBinary(bytes); err != nil {
+	file, err := xls.OpenBinary(bytes)
+	if err != nil {
 		return nil, fmt.Errorf("failed to open xlsx file: %w", err)
-	} else {
-		file = v
 	}
 
 	table := Table{}
-	cfg := config.Get().SQLite.Gen
 	invalidMap := map[int]bool{}
 
 	for k, v := range file.Sheet {
-		if k != cfg.XLSX.Sheet {
+		if k != config.Get().XLSX.Sheet {
 			continue
 		}
 		if err := v.ForEachRow(func(row *xls.Row) error {
@@ -39,7 +36,7 @@ func (p *xlsxParser) Parse(bytes []byte) (Table, error) {
 					return fmt.Errorf("failed to parse cell: %w", err)
 				}
 				rowIndex, cellIndex := cell.GetCoordinates()
-				if cellValue == "" && rowIndex == cfg.Head.ColumnNameRow-1 {
+				if cellValue == "" && rowIndex == config.Get().Head.ColumnNameRow-1 {
 					invalidMap[cellIndex] = true
 				}
 				if invalidMap[cellIndex] {
@@ -60,23 +57,21 @@ func (p *xlsxParser) Parse(bytes []byte) (Table, error) {
 	return table, nil
 }
 
+// セルフォーマットが時間でかつ, 値が数値に場合は RFC3339 形式の文字列に変換する
 func (p *xlsxParser) parseCell(cell *xls.Cell) (string, error) {
-	// セルフォーマットが時間でかつ、
-	// 値が数値に場合は RFC3339 形式の文字列に変換する
-	var f float64
-	if v, err := strconv.ParseFloat(cell.Value, 64); err == nil {
-		f = v
-	}
-	if cell.IsTime() && f > 0 {
-		if v, err := cell.GetTime(false); err != nil {
-			return "", fmt.Errorf("failed to get time: %w", err)
-		} else {
-			v = v.In(config.Location())
-			_, offset := v.Zone()
-			v = v.Add(time.Duration(offset) * -time.Second)
-			return v.Format(time.RFC3339), nil
-		}
+	float, err := strconv.ParseFloat(cell.Value, 64)
+	if err != nil || !cell.IsTime() || float == 0 {
+		// セルフォーマットが時間でない場合はそのまま返す
+		return cell.Value, nil
 	}
 
-	return cell.Value, nil
+	t, err := cell.GetTime(false)
+	if err != nil {
+		return "", fmt.Errorf("failed to get time: %w", err)
+	}
+
+	loc := config.Get().Location
+	_, offset := t.In(&loc).Zone()
+	t = t.Add(time.Duration(offset) * -time.Second)
+	return t.Format(time.RFC3339), nil
 }

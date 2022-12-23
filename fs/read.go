@@ -2,7 +2,6 @@ package fs
 
 import (
 	"fmt"
-	"io/fs"
 	"path/filepath"
 	"strings"
 
@@ -10,34 +9,35 @@ import (
 )
 
 func Read(bfs billy.Filesystem, path string, ext string) (FileMap, error) {
-	if v, err := read(bfs, path, "", ext); err != nil {
+	fileMap, err := read(bfs, path, "", ext)
+	if err != nil {
 		return nil, fmt.Errorf("failed to read: %w", err)
-	} else {
-		return v, nil
 	}
+	return fileMap, nil
 }
 
 func read(bfs billy.Filesystem, rootPath string, path string, ext string) (FileMap, error) {
-	fileMap := FileMap{}
-
 	if path == "" {
 		path = rootPath
 	}
 
-	if v, err := bfs.Stat(path); err != nil {
+	fileInfo, err := bfs.Stat(path)
+	if err != nil {
 		return nil, fmt.Errorf("failed to stat: %w", err)
-	} else if !v.IsDir() {
+	}
+
+	fileMap := FileMap{}
+
+	if !fileInfo.IsDir() {
 		return fileMap, nil
 	}
 
-	var infoSlice []fs.FileInfo
-	if v, err := bfs.ReadDir(path); err != nil {
+	infoList, err := bfs.ReadDir(path)
+	if err != nil {
 		return nil, fmt.Errorf("failed to read dir on file system: %w", err)
-	} else {
-		infoSlice = v
 	}
 
-	for _, info := range infoSlice {
+	for _, info := range infoList {
 		path := filepath.Join(path, info.Name())
 		if !info.IsDir() && filepath.Ext(path) == ext {
 			index := strings.TrimSuffix(path, ext)
@@ -49,12 +49,12 @@ func read(bfs billy.Filesystem, rootPath string, path string, ext string) (FileM
 			}
 			continue
 		}
-		if v, err := read(bfs, rootPath, path, ext); err != nil {
+		fileMap, err := read(bfs, rootPath, path, ext)
+		if err != nil {
 			return nil, fmt.Errorf("failed to read: %w", err)
-		} else {
-			for index, file := range v {
-				fileMap[index] = file
-			}
+		}
+		for key, file := range fileMap {
+			fileMap[key] = file
 		}
 	}
 
