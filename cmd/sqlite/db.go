@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -22,6 +23,37 @@ type Table struct {
 	Index  string
 	Name   string
 	Config config.Table
+}
+
+func createDB(bfs billy.Filesystem, dbFile string) error {
+	log.Printf("🔽 Create database")
+	if err := os.RemoveAll(dbFile); err != nil {
+		return fmt.Errorf("failed to remove db file: %w", err)
+	}
+
+	db, err := sql.Open("sqlite3", dbFile)
+	if err != nil {
+		return fmt.Errorf("failed to open connection with database")
+	}
+	defer db.Close()
+
+	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return fmt.Errorf("failed to enable foreign key: %w", err)
+	}
+
+	log.Printf("🔽 Create tables")
+	argMap, err := createTables(db, bfs)
+	if err != nil {
+		return fmt.Errorf("failed to create: %w", err)
+	}
+
+	log.Printf("🔽 Insert records")
+	err = insertRecords(db, bfs, argMap)
+	if err != nil {
+		return fmt.Errorf("failed to insert: %w", err)
+	}
+
+	return nil
 }
 
 func createTables(db *sql.DB, bfs billy.Filesystem) (map[string]arg, error) {
@@ -80,6 +112,7 @@ func createTables(db *sql.DB, bfs billy.Filesystem) (map[string]arg, error) {
 				Name: strcase.ToCamel(nameRow[i]),
 			})
 		}
+
 		argMap[t.Name] = arg
 	}
 

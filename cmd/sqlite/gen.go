@@ -59,38 +59,22 @@ func (c *g) Run(command *cobra.Command, args []string) (retErr error) {
 	var err error
 	switch {
 	case c.Cfg.Local.Path != "":
-		path := c.Cfg.Local.Path
-		log.Printf("🔽 Local [%s]", path)
-		bfs = osfs.New(path)
+		bfs = osfs.New(c.Cfg.Local.Path)
+		log.Printf("🔽 Local [path: %s]", c.Cfg.Local.Path)
 	case c.Cfg.Remote.Repo != "":
-		repo := c.Cfg.Remote.Repo
-		log.Printf("🔽 Remote [repository: %s, branch: %s]", repo, c.Cfg.Remote.Refs)
-		bfs, err = clone(repo)
-		if err != nil {
-			return fmt.Errorf("failed to clone: %w", err)
-		}
+		bfs, err = clone(c.Cfg.Remote.Repo)
+		log.Printf("🔽 Remote [repository: %s, branch: %s]", c.Cfg.Remote.Repo, c.Cfg.Remote.Refs)
+	}
+	if err != nil {
+		return fmt.Errorf("filed to setup file system: %w", err)
 	}
 	if bfs == nil {
 		return fmt.Errorf("no file system")
 	}
 
-	log.Printf("🔽 Create database")
-	db, err := createDatabase(args[0])
-	if err != nil {
+	// データベースファイルを作成する
+	if err := createDB(bfs, args[0]); err != nil {
 		return fmt.Errorf("failed to setup: %w", err)
-	}
-	defer db.Close()
-
-	log.Printf("🔽 Create tables")
-	argMap, err := createTables(db, bfs)
-	if err != nil {
-		return fmt.Errorf("failed to create: %w", err)
-	}
-
-	log.Printf("🔽 Insert records")
-	err = insertRecords(db, bfs, argMap)
-	if err != nil {
-		return fmt.Errorf("failed to insert: %w", err)
 	}
 
 	return nil
