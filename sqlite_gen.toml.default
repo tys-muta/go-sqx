@@ -33,7 +33,7 @@ timezone = "Asia/Tokyo"
 
 # テーブル毎の設定 ( table."/path" というルールでテーブルごとの設定を記述する )
 
-[[table."/standard"]]
+[[table."standard"]]
   primaryKey = ["id"]
   uniqueKeys = [
     ["floatColumn", "datetimeColumn"],
@@ -43,17 +43,17 @@ timezone = "Asia/Tokyo"
     ["intColumn", "floatColumn"],
   ]
 
-[[table."/child".foreignKeys]]   
+[[table."child".foreignKeys]]
   column = "standardId"
   reference = "standard(id)"
 
-[[table."/shard/int"]]
+[[table."shard/int"]]
   primaryKey = ["typeId", "id"]
   # shardXXX は、ファイルを分割している場合の設定
   shardColumnName = "typeId" # ファイルに含まれるデータを格納する SQLite テーブルは、ここで指定した名称のカラムを持つ
   shardColumnType = "int" # ファイル名はこの型として格納される
 
-[[table."/shard/string"]]
+[[table."shard/string"]]
   primaryKey = ["type", "id"]
   shardColumnName = "type"
   shardColumnType = "string"

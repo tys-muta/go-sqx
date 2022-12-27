@@ -7,26 +7,28 @@ import (
 	"github.com/tys-muta/go-sqx/fs"
 )
 
-func Parse(bfs billy.Basic, file fs.File) (Table, error) {
+func Parse(bfs billy.Basic, file fs.File) (Data, error) {
 	bytes := make([]byte, file.Size)
 
-	if v, err := bfs.Open(file.Path); err != nil {
+	f, err := bfs.Open(file.Path)
+	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
-	} else {
-		defer v.Close()
-		if _, err := v.Read(bytes); err != nil {
-			return nil, fmt.Errorf("failed to read file: %w", err)
-		}
+	}
+	defer f.Close()
+
+	if _, err := f.Read(bytes); err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	var table Table
-	if v, err := NewParser(file.Type); err != nil {
+	parser, err := NewParser(file.Type)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse [%s]: %w", file.Path, err)
-	} else if v, err := v.Parse(bytes); err != nil {
-		return nil, fmt.Errorf("failed to parse [%s]: %w", file.Path, err)
-	} else {
-		table = v
 	}
 
-	return table, nil
+	data, err := parser.Parse(bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse [%s]: %w", file.Path, err)
+	}
+
+	return data, nil
 }

@@ -7,7 +7,7 @@ import (
 )
 
 type parser interface {
-	Parse([]byte) (Table, error)
+	Parse([]byte) (Data, error)
 }
 
 func NewParser(fileType fs.FileType) (parser, error) {

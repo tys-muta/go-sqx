@@ -4,13 +4,13 @@ import (
 	"fmt"
 )
 
-type Table [][]string
+type Data [][]string
 
-func (t Table) RowLength() int {
+func (t Data) RowLength() int {
 	return len(t)
 }
 
-func (t Table) Row(n int) ([]string, error) {
+func (t Data) Row(n int) ([]string, error) {
 	if t.RowLength() < n {
 		return nil, fmt.Errorf("row[%d] does not exist", n)
 	}

@@ -19,7 +19,8 @@ import (
 )
 
 type Table struct {
-	table.Table
+	table.Data
+
 	Index  string
 	Name   string
 	Config config.Table
@@ -139,21 +140,21 @@ func insertRecords(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) erro
 	}
 
 	queries := []string{}
-	for _, t := range tables {
+	for _, table := range tables {
 		startRow := body.StartRow
-		if t.RowLength() < startRow {
-			return fmt.Errorf("not enough rows. rows: %d, start row: %d", t.RowLength(), startRow)
+		if table.RowLength() < startRow {
+			return fmt.Errorf("not enough rows. rows: %d, start row: %d", table.RowLength(), startRow)
 		}
 
-		arg, ok := argMap[t.Name]
+		arg, ok := argMap[table.Name]
 		if !ok {
-			return fmt.Errorf("not exists arg. table name: %s", t.Name)
+			return fmt.Errorf("not exists arg. table name: %s", table.Name)
 		}
 
-		values := [][]string(t.Table[startRow-1:])
+		values := [][]string(table.Data[startRow-1:])
 
-		if t.Config.ShardColumnName != "" {
-			base := filepath.Base(t.Index)
+		if table.Config.ShardColumnName != "" {
+			base := filepath.Base(table.Index)
 			for i, v := range values {
 				values[i] = append([]string{base}, v...)
 			}
@@ -209,14 +210,14 @@ func scanTables(bfs billy.Filesystem, path string, ext string) ([]Table, error) 
 	}
 
 	for index, file := range fileMap {
-		t := Table{Index: index}
-		if v, err := table.Parse(bfs, file); err != nil {
+		data, err := table.Parse(bfs, file)
+		if err != nil {
 			return nil, fmt.Errorf("failed to parse: %w", err)
-		} else {
-			t.Table = v
 		}
 
-		for path, table := range config.Get().Table {
+		table := Table{Index: index, Data: data}
+
+		for path, cfg := range config.Get().Table {
 			if !strings.HasPrefix(index, path) {
 				continue
 			}
@@ -226,28 +227,28 @@ func scanTables(bfs billy.Filesystem, path string, ext string) ([]Table, error) 
 				continue
 			}
 			switch {
-			case table.ShardColumnType != "":
-				if table.ShardColumnType == "int" {
+			case cfg.ShardColumnType != "":
+				if cfg.ShardColumnType == "int" {
 					if _, err := strconv.ParseInt(name, 10, 64); err != nil {
 						continue
 					}
 				}
 				index = path
-				t.Config = table
+				table.Config = cfg
 			case
-				len(table.PrimaryKey) > 0,
-				len(table.UniqueKeys) > 0,
-				len(table.IndexKeys) > 0,
-				len(table.ForeignKeys) > 0:
+				len(cfg.PrimaryKey) > 0,
+				len(cfg.UniqueKeys) > 0,
+				len(cfg.IndexKeys) > 0,
+				len(cfg.ForeignKeys) > 0:
 				if index == path {
-					t.Config = table
+					table.Config = cfg
 				}
 			}
 		}
 
-		t.Name = strcase.ToCamel(strings.Replace(index, "/", "_", -1))
+		table.Name = strcase.ToCamel(strings.Replace(index, "/", "_", -1))
 
-		tables = append(tables, t)
+		tables = append(tables, table)
 	}
 
 	return tables, nil
