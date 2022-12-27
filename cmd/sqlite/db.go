@@ -216,31 +216,31 @@ func scanTables(bfs billy.Filesystem, path string, ext string) ([]Table, error) 
 			t.Table = v
 		}
 
-		for k, v := range config.Get().Table {
-			if !strings.HasPrefix(index, k) {
+		for path, table := range config.Get().Table {
+			if !strings.HasPrefix(index, path) {
 				continue
 			}
-			name := strings.TrimPrefix(index, k)
+			name := strings.TrimPrefix(index, path)
 			name = strings.TrimPrefix(name, "/")
 			if strings.Contains(name, "/") {
 				continue
 			}
 			switch {
-			case v.ShardColumnType != "":
-				if v.ShardColumnType == "int" {
+			case table.ShardColumnType != "":
+				if table.ShardColumnType == "int" {
 					if _, err := strconv.ParseInt(name, 10, 64); err != nil {
 						continue
 					}
 				}
-				index = k
-				t.Config = v
+				index = path
+				t.Config = table
 			case
-				len(v.PrimaryKey) > 0,
-				len(v.UniqueKeys) > 0,
-				len(v.IndexKeys) > 0,
-				len(v.ForeignKeys) > 0:
-				if index == k {
-					t.Config = v
+				len(table.PrimaryKey) > 0,
+				len(table.UniqueKeys) > 0,
+				len(table.IndexKeys) > 0,
+				len(table.ForeignKeys) > 0:
+				if index == path {
+					t.Config = table
 				}
 			}
 		}
