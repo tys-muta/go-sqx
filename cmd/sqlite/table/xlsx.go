@@ -9,25 +9,27 @@ import (
 
 	xls "github.com/tealeg/xlsx/v3"
 	"github.com/tys-muta/go-sqx/cmd/sqlite/config"
+	"github.com/tys-muta/go-sqx/cmd/sqlite/types"
 )
 
 type xlsxParser struct{}
 
 var _ parser = (*xlsxParser)(nil)
 
-func (p *xlsxParser) Parse(bytes []byte) (Table, error) {
+func (p *xlsxParser) Parse(bytes []byte) (types.Rows, error) {
 	file, err := xls.OpenBinary(bytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open xlsx file: %w", err)
 	}
 
-	table := Table{}
 	invalidMap := map[int]bool{}
 
+	rows := types.Rows{}
 	for k, v := range file.Sheet {
 		if k != config.Get().XLSX.Sheet {
 			continue
 		}
+
 		if err := v.ForEachRow(func(row *xls.Row) error {
 			values := []string{}
 			if err := row.ForEachCell(func(cell *xls.Cell) error {
@@ -47,14 +49,16 @@ func (p *xlsxParser) Parse(bytes []byte) (Table, error) {
 			}); err != nil {
 				return fmt.Errorf("failed to iterate cells: %w", err)
 			}
-			table = append(table, values)
+
+			rows = append(rows, values)
+
 			return nil
 		}); err != nil {
 			return nil, fmt.Errorf("failed to iterate rows: %w", err)
 		}
 	}
 
-	return table, nil
+	return rows, nil
 }
 
 // セルフォーマットが時間でかつ, 値が数値に場合は RFC3339 形式の文字列に変換する

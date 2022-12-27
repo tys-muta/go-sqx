@@ -8,9 +8,10 @@ import (
 	_ "time/tzdata"
 
 	"github.com/tys-muta/go-sqx/cmd/sqlite/config"
+	"github.com/tys-muta/go-sqx/cmd/sqlite/types"
 )
 
-func Insert(tableName string, columns []Column, values [][]string) (string, error) {
+func Insert(tableName string, columns []types.Column, values [][]string) (string, error) {
 	if len(columns) == 0 {
 		return "", fmt.Errorf("columns is empty")
 	}
@@ -42,9 +43,9 @@ func Insert(tableName string, columns []Column, values [][]string) (string, erro
 	return query, nil
 }
 
-func cast(column Column, value string) (string, error) {
+func cast(column types.Column, value string) (string, error) {
 	switch column.Type {
-	case ColumnTypeInteger:
+	case types.ColumnTypeInteger:
 		if value == "" {
 			return "0", nil
 		}
@@ -53,7 +54,7 @@ func cast(column Column, value string) (string, error) {
 		} else {
 			return fmt.Sprintf(`%d`, int(v)), nil
 		}
-	case ColumnTypeNumeric:
+	case types.ColumnTypeNumeric:
 		if value == "" {
 			return "0", nil
 		}
@@ -62,7 +63,7 @@ func cast(column Column, value string) (string, error) {
 		} else {
 			return fmt.Sprintf(`%g`, v), nil
 		}
-	case ColumnTypeDateTime:
+	case types.ColumnTypeDateTime:
 		if _, err := time.Parse(time.RFC3339, value); err == nil {
 			return fmt.Sprintf(`"%s"`, value), nil
 		}

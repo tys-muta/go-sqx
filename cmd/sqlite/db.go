@@ -15,16 +15,9 @@ import (
 	"github.com/tys-muta/go-sqx/cmd/sqlite/option"
 	"github.com/tys-muta/go-sqx/cmd/sqlite/query"
 	"github.com/tys-muta/go-sqx/cmd/sqlite/table"
+	"github.com/tys-muta/go-sqx/cmd/sqlite/types"
 	"github.com/tys-muta/go-sqx/fs"
 )
-
-type Table struct {
-	table.Data
-
-	Index  string
-	Name   string
-	Config config.Table
-}
 
 func createDB(bfs billy.Filesystem, dbFile string) error {
 	log.Printf("🔽 Create database")
@@ -57,8 +50,8 @@ func createDB(bfs billy.Filesystem, dbFile string) error {
 	return nil
 }
 
-func createTables(db *sql.DB, bfs billy.Filesystem) (map[string]arg, error) {
-	argMap := map[string]arg{}
+func createTables(db *sql.DB, bfs billy.Filesystem) (map[string]types.Definition, error) {
+	defMap := map[string]types.Definition{}
 
 	head := config.Get().Head
 
@@ -67,58 +60,58 @@ func createTables(db *sql.DB, bfs billy.Filesystem) (map[string]arg, error) {
 		return nil, fmt.Errorf("failed to scan: %w", err)
 	}
 
-	for _, t := range tables {
-		arg := arg{}
+	for _, table := range tables {
+		def := types.Definition{}
 
-		nameRow, err := t.Row(head.ColumnNameRow)
+		nameRow, err := table.Row(head.ColumnNameRow)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get name row[%s]: %w", t.Index, err)
+			return nil, fmt.Errorf("failed to get name row[%s]: %w", table.Index, err)
 		}
 
-		typeRow, err := t.Row(head.ColumnTypeRow)
+		typeRow, err := table.Row(head.ColumnTypeRow)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get type row[%s]: %w", t.Index, err)
+			return nil, fmt.Errorf("failed to get type row[%s]: %w", table.Index, err)
 		}
 
 		if len(nameRow) != len(typeRow) {
 			return nil, fmt.Errorf("mismatch length of columns. name: %d, type: %d", len(nameRow), len(typeRow))
 		}
 
-		arg.options = append(arg.options, option.WithPrimaryKey(t.Config.PrimaryKey))
-		arg.options = append(arg.options, option.WithUniqueKey(t.Config.UniqueKeys...))
-		arg.options = append(arg.options, option.WithIndexKey(t.Config.IndexKeys...))
-		for _, v := range t.Config.ForeignKeys {
-			arg.options = append(arg.options, option.WithForeignKey(option.ForeignKey{
+		def.Options = append(def.Options, option.WithPrimaryKey(table.PrimaryKey))
+		def.Options = append(def.Options, option.WithUniqueKey(table.UniqueKeys...))
+		def.Options = append(def.Options, option.WithIndexKey(table.IndexKeys...))
+		for _, v := range table.ForeignKeys {
+			def.Options = append(def.Options, option.WithForeignKey(option.ForeignKey{
 				Column:    v.Column,
 				Reference: v.Reference,
 			}))
 		}
 
-		if t.Config.ShardColumnName != "" {
-			arg.columns = append(arg.columns, query.Column{
-				Type: query.ColumnType(t.Config.ShardColumnType),
-				Name: strcase.ToCamel(t.Config.ShardColumnName),
+		if table.ShardColumnName != "" {
+			def.Columns = append(def.Columns, types.Column{
+				Type: types.ColumnType(table.ShardColumnType),
+				Name: strcase.ToCamel(table.ShardColumnName),
 			})
 		}
 
-		if _, ok := argMap[t.Name]; ok {
+		if _, ok := defMap[table.Name]; ok {
 			// 分割されているテーブルは重複を除外する
 			continue
 		}
 
-		arg.name = t.Name
+		def.Name = table.Name
 		for i, v := range typeRow {
-			arg.columns = append(arg.columns, query.Column{
-				Type: query.ColumnType(v),
+			def.Columns = append(def.Columns, types.Column{
+				Type: types.ColumnType(v),
 				Name: strcase.ToCamel(nameRow[i]),
 			})
 		}
 
-		argMap[t.Name] = arg
+		defMap[table.Name] = def
 	}
 
-	for _, arg := range argMap {
-		query, err := query.Create(arg.name, arg.columns, arg.options...)
+	for _, def := range defMap {
+		query, err := query.Create(def.Name, def.Columns, def.Options...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate creation query: %w", err)
 		}
@@ -128,10 +121,10 @@ func createTables(db *sql.DB, bfs billy.Filesystem) (map[string]arg, error) {
 		}
 	}
 
-	return argMap, nil
+	return defMap, nil
 }
 
-func insertRecords(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) error {
+func insertRecords(db *sql.DB, bfs billy.Filesystem, defMap map[string]types.Definition) error {
 	body := config.Get().Body
 
 	tables, err := scanTables(bfs, body.Path, body.Ext)
@@ -142,25 +135,25 @@ func insertRecords(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) erro
 	queries := []string{}
 	for _, table := range tables {
 		startRow := body.StartRow
-		if table.RowLength() < startRow {
-			return fmt.Errorf("not enough rows. rows: %d, start row: %d", table.RowLength(), startRow)
+		if table.Length() < startRow {
+			return fmt.Errorf("not enough rows. rows: %d, start row: %d", table.Length(), startRow)
 		}
 
-		arg, ok := argMap[table.Name]
+		def, ok := defMap[table.Name]
 		if !ok {
 			return fmt.Errorf("not exists arg. table name: %s", table.Name)
 		}
 
-		values := [][]string(table.Data[startRow-1:])
+		values := [][]string(table.Rows[startRow-1:])
 
-		if table.Config.ShardColumnName != "" {
+		if table.ShardColumnName != "" {
 			base := filepath.Base(table.Index)
 			for i, v := range values {
 				values[i] = append([]string{base}, v...)
 			}
 		}
 
-		query, err := query.Insert(arg.name, arg.columns, values)
+		query, err := query.Insert(def.Name, def.Columns, values)
 		if err != nil {
 			return fmt.Errorf("failed to generate insertion query: %w", err)
 		}
@@ -170,30 +163,23 @@ func insertRecords(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) erro
 
 	// 外部キー制約によって失敗する事を考慮してインサート＆リトライを行う
 	retryCounts := map[string]int{}
-	insert := func(queries []string) ([]string, error) {
+	for {
 		failedQueries := []string{}
 		for _, query := range queries {
-			_, err := db.Exec(query)
 			log.Printf("%s", query)
-			if strings.Contains(fmt.Sprintf("%s", err), "FOREIGN KEY constraint failed") {
-				failedQueries = append(failedQueries, query)
-				retryCounts[query]++
-				if retryCounts[query] > 10 {
-					return nil, fmt.Errorf("failed to execute insertion query retry: %w", err)
+			_, err := db.Exec(query)
+			if err != nil {
+				if strings.Contains(fmt.Sprintf("%s", err), "FOREIGN KEY constraint failed") {
+					failedQueries = append(failedQueries, query)
+					retryCounts[query]++
+					if retryCounts[query] > 10 {
+						return fmt.Errorf("failed to execute insertion query retry: %w", err)
+					}
 				}
-			} else if err != nil {
-				return nil, fmt.Errorf("failed to execute insertion query: %w", err)
+				return fmt.Errorf("failed to execute insertion query: %w", err)
 			}
 		}
-		return failedQueries, nil
-	}
-
-	for {
-		queries, err := insert(queries)
-		if err != nil {
-			return fmt.Errorf("failed to insert: %w", err)
-		}
-		if len(queries) == 0 {
+		if len(failedQueries) == 0 {
 			break
 		}
 	}
@@ -201,8 +187,8 @@ func insertRecords(db *sql.DB, bfs billy.Filesystem, argMap map[string]arg) erro
 	return nil
 }
 
-func scanTables(bfs billy.Filesystem, path string, ext string) ([]Table, error) {
-	tables := []Table{}
+func scanTables(bfs billy.Filesystem, path string, ext string) ([]types.Table, error) {
+	tables := []types.Table{}
 
 	fileMap, err := fs.Read(bfs, path, ext)
 	if err != nil {
@@ -210,12 +196,12 @@ func scanTables(bfs billy.Filesystem, path string, ext string) ([]Table, error) 
 	}
 
 	for index, file := range fileMap {
-		data, err := table.Parse(bfs, file)
+		rows, err := table.Parse(bfs, file)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse: %w", err)
 		}
 
-		table := Table{Index: index, Data: data}
+		table := types.Table{Index: index, Rows: rows}
 
 		for path, cfg := range config.Get().Table {
 			if !strings.HasPrefix(index, path) {
@@ -234,14 +220,14 @@ func scanTables(bfs billy.Filesystem, path string, ext string) ([]Table, error) 
 					}
 				}
 				index = path
-				table.Config = cfg
+				table.Table = cfg
 			case
 				len(cfg.PrimaryKey) > 0,
 				len(cfg.UniqueKeys) > 0,
 				len(cfg.IndexKeys) > 0,
 				len(cfg.ForeignKeys) > 0:
 				if index == path {
-					table.Config = cfg
+					table.Table = cfg
 				}
 			}
 		}

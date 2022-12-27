@@ -5,30 +5,32 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+
+	"github.com/tys-muta/go-sqx/cmd/sqlite/types"
 )
 
 type csvParser struct{}
 
 var _ parser = (*csvParser)(nil)
 
-func (p *csvParser) Parse(bytes []byte) (Table, error) {
+func (p *csvParser) Parse(bytes []byte) (types.Rows, error) {
 	reader := csv.NewReader(b.NewReader(bytes))
-
 	reader.Comma = ','
 	reader.Comment = '#'
 	reader.LazyQuotes = true
 
-	table := Table{}
-
+	rows := types.Rows{}
 	for {
-		if v, err := reader.Read(); err == io.EOF {
-			break
-		} else if err != nil {
+		row, err := reader.Read()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			return nil, fmt.Errorf("failed to read csv file: %w", err)
-		} else {
-			table = append(table, v)
 		}
+
+		rows = append(rows, row)
 	}
 
-	return table, nil
+	return rows, nil
 }

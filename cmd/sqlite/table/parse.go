@@ -4,10 +4,11 @@ import (
 	"fmt"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/tys-muta/go-sqx/cmd/sqlite/types"
 	"github.com/tys-muta/go-sqx/fs"
 )
 
-func Parse(bfs billy.Basic, file fs.File) (Data, error) {
+func Parse(bfs billy.Basic, file fs.File) (types.Rows, error) {
 	bytes := make([]byte, file.Size)
 
 	f, err := bfs.Open(file.Path)

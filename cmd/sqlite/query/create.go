@@ -6,9 +6,10 @@ import (
 	"strings"
 
 	"github.com/tys-muta/go-sqx/cmd/sqlite/option"
+	"github.com/tys-muta/go-sqx/cmd/sqlite/types"
 )
 
-func Create(tableName string, columns []Column, options ...func(any)) (string, error) {
+func Create(tableName string, columns []types.Column, options ...func(any)) (string, error) {
 	if len(columns) == 0 {
 		return "", fmt.Errorf("columns is empty")
 	}

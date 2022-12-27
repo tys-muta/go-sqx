@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/tys-muta/go-sqx/cmd/sqlite/types"
 )
 
 type Config struct {
@@ -43,21 +44,13 @@ type Config struct {
 	XLSX struct {
 		Sheet string
 	}
-	Table map[string]Table
-}
-
-type Table struct {
-	PrimaryKey      []string
-	UniqueKeys      [][]string
-	IndexKeys       [][]string
-	ForeignKeys     []ForeignKey
-	ShardColumnName string
-	ShardColumnType string
-}
-
-type ForeignKey struct {
-	Column    string
-	Reference string
+	Table map[string]struct {
+		PrimaryKey  []string
+		UniqueKeys  [][]string
+		IndexKeys   [][]string
+		ForeignKeys []types.ForeignKey
+		ShardTypes  []string
+	}
 }
 
 const (

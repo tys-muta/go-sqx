@@ -3,11 +3,12 @@ package table
 import (
 	"fmt"
 
+	"github.com/tys-muta/go-sqx/cmd/sqlite/types"
 	"github.com/tys-muta/go-sqx/fs"
 )
 
 type parser interface {
-	Parse([]byte) (Data, error)
+	Parse([]byte) (types.Rows, error)
 }
 
 func NewParser(fileType fs.FileType) (parser, error) {
