@@ -11,3 +11,4 @@ tmp
 bin
 data
 sqlite_gen.toml
+db.sqlite
