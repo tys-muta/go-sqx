@@ -28,7 +28,6 @@ func read(bfs billy.Filesystem, rootPath string, path string, ext string) (FileM
 	}
 
 	fileMap := FileMap{}
-
 	if !fileInfo.IsDir() {
 		return fileMap, nil
 	}
@@ -51,12 +50,11 @@ func read(bfs billy.Filesystem, rootPath string, path string, ext string) (FileM
 			continue
 		}
 
-		fileMap, err := read(bfs, rootPath, path, ext)
+		fMap, err := read(bfs, rootPath, path, ext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read: %w", err)
 		}
-
-		for key, file := range fileMap {
+		for key, file := range fMap {
 			fileMap[key] = file
 		}
 	}
