@@ -44,13 +44,15 @@ type Config struct {
 	XLSX struct {
 		Sheet string
 	}
-	Table map[string]struct {
-		PrimaryKey  []string
-		UniqueKeys  [][]string
-		IndexKeys   [][]string
-		ForeignKeys []types.ForeignKey
-		ShardTypes  []string
-	}
+	Table map[string]Table
+}
+
+type Table struct {
+	PrimaryKey  []string
+	UniqueKeys  [][]string
+	IndexKeys   [][]string
+	ForeignKeys []types.ForeignKey
+	ShardTypes  []string
 }
 
 const (

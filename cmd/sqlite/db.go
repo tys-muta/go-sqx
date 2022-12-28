@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -80,22 +79,11 @@ func createTables(db *sql.DB, bfs billy.Filesystem) (map[string]types.Definition
 		def.Options = append(def.Options, option.WithPrimaryKey(table.PrimaryKey))
 		def.Options = append(def.Options, option.WithUniqueKey(table.UniqueKeys...))
 		def.Options = append(def.Options, option.WithIndexKey(table.IndexKeys...))
-		for _, v := range table.ForeignKeys {
-			def.Options = append(def.Options, option.WithForeignKey(option.ForeignKey{
-				Column:    v.Column,
-				Reference: v.Reference,
-			}))
-		}
-
-		if table.ShardColumnName != "" {
-			def.Columns = append(def.Columns, types.Column{
-				Type: types.ColumnType(table.ShardColumnType),
-				Name: strcase.ToCamel(table.ShardColumnName),
-			})
-		}
+		def.Options = append(def.Options, option.WithForeignKey(table.ForeignKeys...))
+		def.Options = append(def.Options, option.WithShardColumn(table.ShardColumns...))
 
 		if _, ok := defMap[table.Name]; ok {
-			// 分割されているテーブルは重複を除外する
+			// 分割されているテーブルでは定義が複数発生しうるため、定義が既に存在する場合はスキップする
 			continue
 		}
 
@@ -146,12 +134,12 @@ func insertRecords(db *sql.DB, bfs billy.Filesystem, defMap map[string]types.Def
 
 		values := [][]string(table.Rows[startRow-1:])
 
-		if table.ShardColumnName != "" {
-			base := filepath.Base(table.Index)
-			for i, v := range values {
-				values[i] = append([]string{base}, v...)
-			}
-		}
+		// if table.ShardColumnName != "" {
+		// 	base := filepath.Base(table.Index)
+		// 	for i, v := range values {
+		// 		values[i] = append([]string{base}, v...)
+		// 	}
+		// }
 
 		query, err := query.Insert(def.Name, def.Columns, values)
 		if err != nil {
@@ -175,8 +163,9 @@ func insertRecords(db *sql.DB, bfs billy.Filesystem, defMap map[string]types.Def
 					if retryCounts[query] > 10 {
 						return fmt.Errorf("failed to execute insertion query retry: %w", err)
 					}
+				} else {
+					return fmt.Errorf("failed to execute insertion query: %w", err)
 				}
-				return fmt.Errorf("failed to execute insertion query: %w", err)
 			}
 		}
 		if len(failedQueries) == 0 {
@@ -203,39 +192,74 @@ func scanTables(bfs billy.Filesystem, path string, ext string) ([]types.Table, e
 
 		table := types.Table{Index: index, Rows: rows}
 
+		// ファイルに対応する設定があれば適用する
 		for path, cfg := range config.Get().Table {
-			if !strings.HasPrefix(index, path) {
-				continue
-			}
-			name := strings.TrimPrefix(index, path)
-			name = strings.TrimPrefix(name, "/")
-			if strings.Contains(name, "/") {
-				continue
-			}
-			switch {
-			case cfg.ShardColumnType != "":
-				if cfg.ShardColumnType == "int" {
-					if _, err := strconv.ParseInt(name, 10, 64); err != nil {
-						continue
-					}
-				}
-				index = path
-				table.Table = cfg
-			case
-				len(cfg.PrimaryKey) > 0,
-				len(cfg.UniqueKeys) > 0,
-				len(cfg.IndexKeys) > 0,
-				len(cfg.ForeignKeys) > 0:
-				if index == path {
-					table.Table = cfg
-				}
-			}
+			configure(&table, path, cfg)
 		}
 
+		// テーブル名をインデックスを元に決定する ( foo/bar -> foo_bar -> FooBar )
 		table.Name = strcase.ToCamel(strings.Replace(index, "/", "_", -1))
 
 		tables = append(tables, table)
 	}
 
 	return tables, nil
+}
+
+func configure(table *types.Table, pathStr string, cfg config.Table) {
+	path := parse(pathStr)
+	if !strings.HasPrefix(table.Index, path.Prefix) {
+		return
+	}
+
+	// シャードテーブルの場合、シャードキーの数や型が一致するか確認する
+	params := strings.Split(strings.TrimPrefix(table.Index, path.Prefix), "/")
+	for i, param := range params {
+		if param == "" {
+			return
+		}
+		shardType := cfg.ShardTypes[i]
+		paramName := path.ParamNames[i]
+		switch v := types.ColumnType(shardType); v {
+		case types.ColumnTypeInteger:
+			_, err := strconv.Atoi(param)
+			if err != nil {
+				return
+			}
+			table.ShardColumns = append(table.ShardColumns, types.Column{
+				Name: paramName,
+				Type: v,
+			})
+		case types.ColumnTypeString:
+			table.ShardColumns = append(table.ShardColumns, types.Column{
+				Name: paramName,
+				Type: v,
+			})
+		default:
+			return
+		}
+	}
+
+	table.PrimaryKey = cfg.PrimaryKey
+	table.UniqueKeys = cfg.UniqueKeys
+	table.IndexKeys = cfg.IndexKeys
+	table.ForeignKeys = cfg.ForeignKeys
+}
+
+type Path struct {
+	Prefix     string
+	ParamNames []string
+}
+
+func parse(path string) Path {
+	p := Path{
+		Prefix: strings.Split(path, ":")[0],
+	}
+	for _, v := range strings.Split(path, "/") {
+		if !strings.HasPrefix(v, ":") {
+			continue
+		}
+		p.ParamNames = append(p.ParamNames, strings.TrimPrefix(v, ":"))
+	}
+	return p
 }

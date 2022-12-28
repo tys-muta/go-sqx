@@ -9,6 +9,7 @@ type columnType string
 
 const (
 	ColumnTypeText     = columnType("TEXT")
+	ColumnTypeString   = ColumnTypeText
 	ColumnTypeDateTime = columnType("DATETIME")
 	ColumnTypeInteger  = columnType("INTEGER")
 	ColumnTypeNumeric  = columnType("NUMERIC")
