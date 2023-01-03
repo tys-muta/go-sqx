@@ -1,0 +1,60 @@
+# 基本設定
+
+## 表ファイルのカラムに datetime が指定されているものの、タイムゾーンを含まないフォーマットの場合に適用するタイムゾーン
+timezone = "Asia/Tokyo"
+
+## 表ファイルがローカルに存在する場合に指定
+[local]
+  path = "example/xlsx"
+
+## 表ファイルが Git リポジトリに存在する場合に指定
+[remote]
+  repo = "https://github.com/tys-muta/go-sqx.git" # 対象のリポジトリ
+  refs = "refs/tags/vx.x.x" # 対象の参照情報
+  basicAuth = { username = "xxx", password = "ghp_xxx" }
+
+## 表ファイル自体に関する情報
+[head]
+  ext = ".xlsx" # 対象となる表ファイルの拡張子
+  path = "example/xlsx" # 取り込みの起点となるリポジトリルートからのパス
+  columnNameRow = 3 # カラム名が定義されている行数
+  columnTypeRow = 2 # カラムの型が定義されている行数 ( string, datetime, int, float )
+
+## 表ファイルのレコードに関する情報
+[body]
+  ext = ".xlsx" # 対象となる表ファイルの拡張子
+  path = "example/xlsx" # 取り込みの起点となるリポジトリルートからのパス
+  startRow = 4 # 取り込みを開始する行数
+
+## 表ファイルが .xlsx の場合の設定
+[xlsx]
+  sheet = "データ" # 取り込み対象のシート名
+
+
+# テーブル毎の設定 ( table."/path" というルールでテーブルごとの設定を記述する )
+
+[[table."standard"]]
+  primaryKey = ["id"]
+  uniqueKeys = [
+    ["floatColumn", "datetimeColumn"],
+  ]
+  indexKeys = [
+    ["stringColumn"],
+    ["intColumn", "floatColumn"],
+  ]
+
+[[table."child".foreignKeys]]
+  column = "standardId"
+  reference = "standard(id)"
+
+[[table."shard/int/:typeId"]]
+  primaryKey = ["typeId", "id"]
+  shardTypes = ["int"]
+
+[[table."shard/string/:type"]]
+  primaryKey = ["type", "id"]
+  shardTypes = ["string"]
+
+[[table."shard/foo/:barId/:bazId"]]
+  primaryKey = ["barId", "bazId", "id"]
+  shardTypes = ["int", "int"]
