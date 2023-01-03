@@ -47,13 +47,14 @@ timezone = "Asia/Tokyo"
   column = "standardId"
   reference = "standard(id)"
 
-[[table."shard/int"]]
+[[table."shard/int/:typeId"]]
   primaryKey = ["typeId", "id"]
-  # shardXXX は、ファイルを分割している場合の設定
-  shardColumnName = "typeId" # ファイルに含まれるデータを格納する SQLite テーブルは、ここで指定した名称のカラムを持つ
-  shardColumnType = "int" # ファイル名はこの型として格納される
+  shardTypes = ["int"]
 
-[[table."shard/string"]]
+[[table."shard/string/:type"]]
   primaryKey = ["type", "id"]
-  shardColumnName = "type"
-  shardColumnType = "string"
+  shardTypes = ["string"]
+
+[[table."shard/foo/:barId/:bazId"]]
+  primaryKey = ["barId", "bazId", "id"]
+  shardTypes = ["int", "int"]

@@ -1,8 +1,9 @@
 package types
 
 type Column struct {
-	Type columnType
-	Name string
+	Type  columnType
+	Name  string
+	Value string
 }
 
 type columnType string

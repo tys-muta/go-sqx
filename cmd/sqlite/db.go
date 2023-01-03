@@ -82,6 +82,8 @@ func createTables(db *sql.DB, bfs billy.Filesystem) (map[string]types.Definition
 		def.Options = append(def.Options, option.WithForeignKey(table.ForeignKeys...))
 		def.Options = append(def.Options, option.WithShardColumn(table.ShardColumns...))
 
+		def.Columns = append(def.Columns, table.ShardColumns...)
+
 		if _, ok := defMap[table.Name]; ok {
 			// 分割されているテーブルでは定義が複数発生しうるため、定義が既に存在する場合はスキップする
 			continue
@@ -132,16 +134,20 @@ func insertRecords(db *sql.DB, bfs billy.Filesystem, defMap map[string]types.Def
 			return fmt.Errorf("not exists arg. table name: %s", table.Name)
 		}
 
-		values := [][]string(table.Rows[startRow-1:])
+		rows := table.Rows[startRow-1:]
 
-		// if table.ShardColumnName != "" {
-		// 	base := filepath.Base(table.Index)
-		// 	for i, v := range values {
-		// 		values[i] = append([]string{base}, v...)
-		// 	}
-		// }
+		// 分割されたテーブルの場合、分割キーを先頭に追加する
+		shardColumns := []string{}
+		for _, column := range table.ShardColumns {
+			shardColumns = append(shardColumns, column.Value)
+		}
+		if len(shardColumns) > 0 {
+			for i, row := range rows {
+				rows[i] = append(shardColumns, row...)
+			}
+		}
 
-		query, err := query.Insert(def.Name, def.Columns, values)
+		query, err := query.Insert(def.Name, def.Columns, rows)
 		if err != nil {
 			return fmt.Errorf("failed to generate insertion query: %w", err)
 		}
@@ -171,6 +177,7 @@ func insertRecords(db *sql.DB, bfs billy.Filesystem, defMap map[string]types.Def
 		if len(failedQueries) == 0 {
 			break
 		}
+		queries = failedQueries
 	}
 
 	return nil
@@ -190,15 +197,16 @@ func scanTables(bfs billy.Filesystem, path string, ext string) ([]types.Table, e
 			return nil, fmt.Errorf("failed to parse: %w", err)
 		}
 
-		table := types.Table{Index: index, Rows: rows}
+		table := types.Table{
+			Index: index,
+			Name:  strcase.ToCamel(strings.Replace(index, "/", "_", -1)),
+			Rows:  rows,
+		}
 
 		// ファイルに対応する設定があれば適用する
 		for path, cfg := range config.Get().Table {
 			configure(&table, path, cfg)
 		}
-
-		// テーブル名をインデックスを元に決定する ( foo/bar -> foo_bar -> FooBar )
-		table.Name = strcase.ToCamel(strings.Replace(index, "/", "_", -1))
 
 		tables = append(tables, table)
 	}
@@ -208,37 +216,38 @@ func scanTables(bfs billy.Filesystem, path string, ext string) ([]types.Table, e
 
 func configure(table *types.Table, pathStr string, cfg config.Table) {
 	path := parse(pathStr)
-	if !strings.HasPrefix(table.Index, path.Prefix) {
+	if !strings.HasPrefix(table.Index, path.Identity) {
 		return
 	}
 
 	// シャードテーブルの場合、シャードキーの数や型が一致するか確認する
-	params := strings.Split(strings.TrimPrefix(table.Index, path.Prefix), "/")
-	for i, param := range params {
-		if param == "" {
-			return
+	values := strings.Split(strings.TrimPrefix(table.Index, path.Identity), "/")
+	for i, value := range values {
+		if value == "" {
+			continue
 		}
-		shardType := cfg.ShardTypes[i]
-		paramName := path.ParamNames[i]
-		switch v := types.ColumnType(shardType); v {
+		column := types.Column{
+			Name:  path.ParamNames[i],
+			Type:  types.ColumnType(cfg.ShardTypes[i]),
+			Value: value,
+		}
+		switch column.Type {
 		case types.ColumnTypeInteger:
-			_, err := strconv.Atoi(param)
+			// シャードキーの型が整数でない場合は対象外にする
+			_, err := strconv.Atoi(value)
 			if err != nil {
 				return
 			}
-			table.ShardColumns = append(table.ShardColumns, types.Column{
-				Name: paramName,
-				Type: v,
-			})
 		case types.ColumnTypeString:
-			table.ShardColumns = append(table.ShardColumns, types.Column{
-				Name: paramName,
-				Type: v,
-			})
+			// do nothing
 		default:
 			return
 		}
+
+		table.ShardColumns = append(table.ShardColumns, column)
 	}
+
+	table.Name = strcase.ToCamel(strings.Replace(path.Identity, "/", "_", -1))
 
 	table.PrimaryKey = cfg.PrimaryKey
 	table.UniqueKeys = cfg.UniqueKeys
@@ -247,19 +256,18 @@ func configure(table *types.Table, pathStr string, cfg config.Table) {
 }
 
 type Path struct {
-	Prefix     string
+	Identity   string
 	ParamNames []string
 }
 
 func parse(path string) Path {
-	p := Path{
-		Prefix: strings.Split(path, ":")[0],
-	}
+	p := Path{}
 	for _, v := range strings.Split(path, "/") {
-		if !strings.HasPrefix(v, ":") {
-			continue
+		if strings.HasPrefix(v, ":") {
+			p.ParamNames = append(p.ParamNames, strings.TrimPrefix(v, ":"))
+		} else {
+			p.Identity += v + "/"
 		}
-		p.ParamNames = append(p.ParamNames, strings.TrimPrefix(v, ":"))
 	}
 	return p
 }

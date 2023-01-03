@@ -11,7 +11,7 @@ import (
 	"github.com/tys-muta/go-sqx/cmd/sqlite/types"
 )
 
-func Insert(tableName string, columns []types.Column, values [][]string) (string, error) {
+func Insert(tableName string, columns []types.Column, rows types.Rows) (string, error) {
 	if len(columns) == 0 {
 		return "", fmt.Errorf("columns is empty")
 	}
@@ -22,14 +22,14 @@ func Insert(tableName string, columns []types.Column, values [][]string) (string
 	}
 
 	valueSlice := []string{}
-	for _, v := range values {
+	for _, row := range rows {
 		tmp := []string{}
-		for i, v := range v {
-			if v, err := cast(columns[i], v); err != nil {
+		for i, value := range row {
+			v, err := cast(columns[i], value)
+			if err != nil {
 				return "", fmt.Errorf("failed to cast table[%s]: %w", tableName, err)
-			} else {
-				tmp = append(tmp, v)
 			}
+			tmp = append(tmp, v)
 		}
 		valueSlice = append(valueSlice, fmt.Sprintf("(%s)", strings.Join(tmp, ", ")))
 	}
@@ -49,20 +49,20 @@ func cast(column types.Column, value string) (string, error) {
 		if value == "" {
 			return "0", nil
 		}
-		if v, err := strconv.ParseInt(value, 10, 64); err != nil {
+		v, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
 			return "", fmt.Errorf("failed to parse int: %w", err)
-		} else {
-			return fmt.Sprintf(`%d`, int(v)), nil
 		}
+		return fmt.Sprintf(`%d`, int(v)), nil
 	case types.ColumnTypeNumeric:
 		if value == "" {
 			return "0", nil
 		}
-		if v, err := strconv.ParseFloat(value, 64); err != nil {
+		v, err := strconv.ParseFloat(value, 64)
+		if err != nil {
 			return "", fmt.Errorf("failed to parse float, %w", err)
-		} else {
-			return fmt.Sprintf(`%g`, v), nil
 		}
+		return fmt.Sprintf(`%g`, v), nil
 	case types.ColumnTypeDateTime:
 		if _, err := time.Parse(time.RFC3339, value); err == nil {
 			return fmt.Sprintf(`"%s"`, value), nil
