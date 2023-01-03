@@ -1,0 +1,5 @@
+ID	名前	親への参照
+string	string	string
+id	name	standardId
+1	子1	1
+2	子2	2
