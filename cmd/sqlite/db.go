@@ -141,6 +141,7 @@ func insertRecords(db *sql.DB, bfs billy.Filesystem, defMap map[string]types.Def
 		for _, column := range table.ShardColumns {
 			shardColumns = append(shardColumns, column.Value)
 		}
+
 		if len(shardColumns) > 0 {
 			for i, row := range rows {
 				rows[i] = append(shardColumns, row...)
@@ -160,18 +161,21 @@ func insertRecords(db *sql.DB, bfs billy.Filesystem, defMap map[string]types.Def
 	for {
 		failedQueries := []string{}
 		for _, query := range queries {
-			log.Printf("%s", query)
 			_, err := db.Exec(query)
 			if err != nil {
-				if strings.Contains(fmt.Sprintf("%s", err), "FOREIGN KEY constraint failed") {
+				if strings.Contains(err.Error(), "foreign key mismatch") || strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
 					failedQueries = append(failedQueries, query)
 					retryCounts[query]++
 					if retryCounts[query] > 10 {
-						return fmt.Errorf("failed to execute insertion query retry: %w", err)
+						log.Printf("%s", query)
+						return fmt.Errorf("failed to retry insertion query: %w", err)
 					}
 				} else {
+					log.Printf("%s", query)
 					return fmt.Errorf("failed to execute insertion query: %w", err)
 				}
+			} else {
+				log.Printf("%s", query)
 			}
 		}
 		if len(failedQueries) == 0 {
@@ -204,8 +208,8 @@ func scanTables(bfs billy.Filesystem, path string, ext string) ([]types.Table, e
 		}
 
 		// ファイルに対応する設定があれば適用する
-		for path, cfg := range config.Get().Table {
-			configure(&table, path, cfg)
+		for k, v := range config.Get().Table {
+			associate(&table, k, v)
 		}
 
 		tables = append(tables, table)
@@ -214,60 +218,76 @@ func scanTables(bfs billy.Filesystem, path string, ext string) ([]types.Table, e
 	return tables, nil
 }
 
-func configure(table *types.Table, pathStr string, cfg config.Table) {
-	path := parse(pathStr)
-	if !strings.HasPrefix(table.Index, path.Identity) {
-		return
+// テーブルの索引キーに対応する設定があれば関連付ける
+func associate(table *types.Table, key string, cfg config.Table) {
+	// 設定キーから接頭辞とパラメータ名を抽出する
+	paramNameMap := map[int]string{}
+	paramNames := []string{}
+	paramIndexes := []int{}
+	keyIDs := []string{}
+	for i, v := range strings.Split(key, "/") {
+		if strings.HasPrefix(v, ":") {
+			paramNameMap[i] = strings.TrimPrefix(v, ":")
+			paramNames = append(paramNames, strings.TrimPrefix(v, ":"))
+			paramIndexes = append(paramIndexes, i)
+		} else {
+			keyIDs = append(keyIDs, v)
+		}
 	}
+	keyID := strings.Join(keyIDs, "/")
 
-	// シャードテーブルの場合、シャードキーの数や型が一致するか確認する
-	values := strings.Split(strings.TrimPrefix(table.Index, path.Identity), "/")
-	for i, value := range values {
-		if value == "" {
-			continue
-		}
-		column := types.Column{
-			Name:  path.ParamNames[i],
-			Type:  types.ColumnType(cfg.ShardTypes[i]),
-			Value: value,
-		}
-		switch column.Type {
-		case types.ColumnTypeInteger:
-			// シャードキーの型が整数でない場合は対象外にする
-			_, err := strconv.Atoi(value)
-			if err != nil {
-				return
+	// テーブルの索引キーと設定の一意キーが完全一致しない場合はシャードテーブルか判定
+	if table.Index != keyID {
+		values := strings.Split(table.Index, "/")
+		tableIDs := []string{}
+		for i, value := range values {
+			if _, ok := paramNameMap[i]; !ok {
+				tableIDs = append(tableIDs, value)
 			}
-		case types.ColumnTypeString:
-			// do nothing
-		default:
+		}
+		tableID := strings.Join(tableIDs, "/")
+		if tableID != keyID {
+			// シャードテーブルではないので関連付けない
 			return
 		}
 
-		table.ShardColumns = append(table.ShardColumns, column)
+		// シャードテーブルの場合はパラメータの値を取得する
+		j := 0
+		for k, paramName := range paramNames {
+			i := paramIndexes[k]
+			if len(values) <= i || len(cfg.ShardTypes) <= j {
+				return
+			}
+			paramValue := values[i]
+			shardType := cfg.ShardTypes[j]
+			column := types.Column{
+				Name:  strcase.ToCamel(paramName),
+				Type:  types.ColumnType(shardType),
+				Value: paramValue,
+			}
+			switch column.Type {
+			case types.ColumnTypeInteger:
+				// シャードキーの型が整数でない場合は関連付けない
+				_, err := strconv.Atoi(paramValue)
+				if err != nil {
+					return
+				}
+			case types.ColumnTypeString:
+				// do nothing
+			default:
+				// シャードキーの型が整数でも文字列でもない場合は関連付けない
+				return
+			}
+
+			table.ShardColumns = append(table.ShardColumns, column)
+
+			j++
+		}
 	}
 
-	table.Name = strcase.ToCamel(strings.Replace(path.Identity, "/", "_", -1))
-
+	table.Name = strcase.ToCamel(strings.Replace(keyID, "/", "_", -1))
 	table.PrimaryKey = cfg.PrimaryKey
 	table.UniqueKeys = cfg.UniqueKeys
 	table.IndexKeys = cfg.IndexKeys
 	table.ForeignKeys = cfg.ForeignKeys
-}
-
-type Path struct {
-	Identity   string
-	ParamNames []string
-}
-
-func parse(path string) Path {
-	p := Path{}
-	for _, v := range strings.Split(path, "/") {
-		if strings.HasPrefix(v, ":") {
-			p.ParamNames = append(p.ParamNames, strings.TrimPrefix(v, ":"))
-		} else {
-			p.Identity += v + "/"
-		}
-	}
-	return p
 }
