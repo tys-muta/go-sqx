@@ -21,7 +21,7 @@ func Create(tableName string, columns []types.Column, options ...func(any)) (str
 
 	body := []string{}
 	for _, column := range columns {
-		body = append(body, fmt.Sprintf("`%s` %s NOT NULL", column.Name, column.Type))
+		body = append(body, fmt.Sprintf("`%s` %s NOT NULL", column.Name, column.Type.AsSQL()))
 	}
 	if len(o.PrimaryKey) > 0 {
 		keys := []string{}

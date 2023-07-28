@@ -28,3 +28,14 @@ func ColumnType(v string) columnType {
 		return ColumnTypeText
 	}
 }
+
+func (c columnType) AsSQL() string {
+	switch c {
+	case ColumnTypeInteger, ColumnTypeDateTime:
+		return "INTEGER"
+	case ColumnTypeNumeric:
+		return "NUMERIC"
+	default:
+		return "TEXT"
+	}
+}
