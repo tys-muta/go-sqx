@@ -75,7 +75,7 @@ func cast(column types.Column, value string) (string, error) {
 			v = v.Add(time.Duration(offset) * -time.Second)
 			return fmt.Sprintf(`"%s"`, v.Format(time.RFC3339)), nil
 		}
-		return fmt.Sprintf(`"%s"`, value), nil
+		return "0", nil
 	default:
 		// SQL に合わせたダブルクォーてション処理
 		value = strings.Replace(value, `"`, `""`, -1)
