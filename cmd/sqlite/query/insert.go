@@ -64,8 +64,8 @@ func cast(column types.Column, value string) (string, error) {
 		}
 		return fmt.Sprintf(`%g`, v), nil
 	case types.ColumnTypeDateTime:
-		if _, err := time.Parse(time.RFC3339, value); err == nil {
-			return fmt.Sprintf(`"%s"`, value), nil
+		if v, err := time.Parse(time.RFC3339, value); err == nil {
+			return fmt.Sprintf(`%d`, v.Unix()), nil
 		}
 		// タイムゾーンが含まれないフォーマットの場合、コンフィグに基づきタイムゾーンを設定
 		if v, err := time.Parse("2006-01-02 15:04:05", value); err == nil {
@@ -73,7 +73,7 @@ func cast(column types.Column, value string) (string, error) {
 			v = v.In(&loc)
 			_, offset := v.Zone()
 			v = v.Add(time.Duration(offset) * -time.Second)
-			return fmt.Sprintf(`"%s"`, v.Format(time.RFC3339)), nil
+			return fmt.Sprintf(`%d`, v.Unix()), nil
 		}
 		return "0", nil
 	default:
