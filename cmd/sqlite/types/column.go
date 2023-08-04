@@ -32,7 +32,7 @@ func ColumnType(v string) columnType {
 func (c columnType) AsSQL() string {
 	switch c {
 	case ColumnTypeDateTime:
-		return "`INTEGER(TIMESTAMP)` NULL"
+		return "`INTEGER(TIMESTAMP)`"
 	case ColumnTypeInteger:
 		return "INTEGER NOT NULL"
 	case ColumnTypeNumeric:
