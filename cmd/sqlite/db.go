@@ -163,7 +163,8 @@ func insertRecords(db *sql.DB, bfs billy.Filesystem, defMap map[string]types.Def
 		for _, query := range queries {
 			_, err := db.Exec(query)
 			if err != nil {
-				if strings.Contains(err.Error(), "foreign key mismatch") || strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
+				if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
+					// 外部キー制約によるエラーの場合はリトライする
 					failedQueries = append(failedQueries, query)
 					retryCounts[query]++
 					if retryCounts[query] > 10 {
@@ -171,6 +172,10 @@ func insertRecords(db *sql.DB, bfs billy.Filesystem, defMap map[string]types.Def
 						return fmt.Errorf("failed to retry insertion query: %w", err)
 					}
 				} else {
+					// その他のエラーはリトライせずにエラーとする
+					//
+					// e.g.
+					// foreign key mismatch - 外部キーの参照先カラムがユニークではない
 					log.Printf("%s", query)
 					return fmt.Errorf("failed to execute insertion query: %w", err)
 				}
