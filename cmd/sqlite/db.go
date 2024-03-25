@@ -277,7 +277,7 @@ func associate(table *types.Table, key string, cfg config.Table) {
 				if err != nil {
 					return
 				}
-			case types.ColumnTypeString:
+			case types.ColumnTypeString, types.ColumnTypeNullString:
 				// do nothing
 			default:
 				// シャードキーの型が整数でも文字列でもない場合は関連付けない
