@@ -9,11 +9,11 @@ type Column struct {
 type columnType string
 
 const (
-	ColumnTypeText     = columnType("TEXT")
-	ColumnTypeString   = ColumnTypeText
-	ColumnTypeDateTime = columnType("DATETIME")
-	ColumnTypeInteger  = columnType("INTEGER")
-	ColumnTypeNumeric  = columnType("NUMERIC")
+	ColumnTypeString     = columnType("STRING")
+	ColumnTypeNullString = columnType("NULL_STRING")
+	ColumnTypeDateTime   = columnType("DATETIME")
+	ColumnTypeInteger    = columnType("INTEGER")
+	ColumnTypeNumeric    = columnType("NUMERIC")
 )
 
 func ColumnType(v string) columnType {
@@ -24,8 +24,10 @@ func ColumnType(v string) columnType {
 		return ColumnTypeInteger
 	case "float":
 		return ColumnTypeNumeric
+	case "null_string":
+		return ColumnTypeNullString
 	default:
-		return ColumnTypeText
+		return ColumnTypeString
 	}
 }
 
@@ -37,6 +39,8 @@ func (c columnType) AsSQL() string {
 		return "INTEGER NOT NULL"
 	case ColumnTypeNumeric:
 		return "NUMERIC NOT NULL"
+	case ColumnTypeNullString:
+		return "TEXT NULL"
 	default:
 		return "TEXT NOT NULL"
 	}

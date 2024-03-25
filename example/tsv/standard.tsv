@@ -1,6 +1,6 @@
-ID	文字列カラム	整数カラム	浮動小数点数カラム	日時カラム
-string	string	int	float	time
-id	stringColumn	intColumn	floatColumn	datetimeColumn
-1	文字列1	1	1.50	2020-01-01 00:00:00
-2	文字列2	2	2.50	2020-01-01T00:00:00+09:00
-ID0000001	文字列3	3	3.50	2020-01-01 18:30:11
+ID	文字列カラム	NULL許容文字列カラム	整数カラム	浮動小数点数カラム	日時カラム
+text	text	null_text	int	float	time
+id	stringColumn	nullStringColumn	intColumn	floatColumn	datetimeColumn
+1	文字列1	NULL文字列1	1	1.50	2020-01-01 00:00:00
+2	文字列2		2	2.50	2020-01-01T00:00:00+09:00
+ID0000001	文字列3		3	3.50	2020-01-01 18:30:11
