@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/tys-muta/go-sqx/cmd/sqlite/option"
 	"github.com/tys-muta/go-sqx/cmd/sqlite/types"
 )
@@ -44,14 +45,14 @@ func Create(tableName string, columns []types.Column, options ...func(any)) (str
 
 	for _, v := range o.UniqueKeys {
 		queries = append(queries, fmt.Sprintf("CREATE UNIQUE INDEX `%s` ON `%s` (%s)",
-			strings.Join(v, "-"),
+			strings.Join(v, "-")+"-"+uuid.NewString(), // 重複を避けるためにユニークな名前を生成
 			tableName,
 			strings.Join(v, ", "),
 		))
 	}
 	for _, v := range o.IndexKeys {
 		queries = append(queries, fmt.Sprintf("CREATE INDEX `%s` ON `%s` (%s)",
-			strings.Join(v, "-"),
+			strings.Join(v, "-")+"-"+uuid.NewString(), // 重複を避けるためにユニークな名前を生成
 			tableName,
 			strings.Join(v, ", "),
 		))

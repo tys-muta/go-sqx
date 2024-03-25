@@ -76,8 +76,15 @@ func cast(column types.Column, value string) (string, error) {
 			return fmt.Sprintf(`%d`, v.Unix()), nil
 		}
 		return "0", nil
+	case types.ColumnTypeNullString:
+		if value == "" {
+			return "null", nil
+		}
+		// SQL に合わせたダブルクォーテーション処理
+		value = strings.Replace(value, `"`, `""`, -1)
+		return fmt.Sprintf(`"%s"`, value), nil
 	default:
-		// SQL に合わせたダブルクォーてション処理
+		// SQL に合わせたダブルクォーテーション処理
 		value = strings.Replace(value, `"`, `""`, -1)
 		return fmt.Sprintf(`"%s"`, value), nil
 	}
